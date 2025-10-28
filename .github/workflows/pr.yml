@@ -3,10 +3,13 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
+permissions:
+  pull-requests: read
+
 jobs:
   title-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: deepakputhraya/action-pr-title@master
+      - uses: deepakputhraya/action-pr-title@077bddd
         with:
           regex: '\[(FRONT|BACK|OAPI|MISC)]\W(feature|feat|fix|bugfix|build|chore|docs|hotfix|release):\W.+'
