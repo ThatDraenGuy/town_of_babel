@@ -1,0 +1,4 @@
+rules:
+  stale-action-refs:
+    ignore:
+      - pr.yml:19 # The revision is newer than the latest tag
