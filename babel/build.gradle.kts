@@ -33,6 +33,7 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
 
+    implementation("org.eclipse.jgit:org.eclipse.jgit:6.9.0.202403050737-r")
 
     compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
