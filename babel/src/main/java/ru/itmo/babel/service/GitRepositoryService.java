@@ -13,7 +13,8 @@ import java.util.UUID;
 @Service
 public class GitRepositoryService {
 
-    public File cloneRepository(String repoUrl) throws GitAPIException, IOException {
+    public File cloneRepository(String repoUrl) throws GitAPIException, IOException
+    {
         File tempDir = Files.createTempDirectory("repo-" + UUID.randomUUID()).toFile();
 
         System.out.println("Clone repo to : " + repoUrl);
@@ -28,14 +29,16 @@ public class GitRepositoryService {
         return tempDir;
     }
 
-    public void cleanup(File dir) {
+    public void cleanup(File dir)
+    {
         if (dir != null && dir.exists()) {
             System.out.println("Delete repo: " + dir.getAbsolutePath());
             dir.deleteOnExit();
         }
     }
 
-    public java.util.Map<String, Object> analyzeRepository(File repoDir) throws IOException {
+    public java.util.Map<String, Object> analyzeRepository(File repoDir) throws IOException
+    {
         long fileCount = Files.walk(repoDir.toPath())
                 .filter(Files::isRegularFile)
                 .count();

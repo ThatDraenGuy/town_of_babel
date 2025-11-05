@@ -14,7 +14,8 @@ public class CommitController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) List<String> metrics
-    ) {
+    )
+    {
         // TODO: вызывать сервис анализа коммитов (https://github.com/centic9/jgit-cookbook/blob/master/src/main/java/org/dstadler/jgit/porcelain/WalkAllCommits.java)
         return Map.of(
                 "repository", "project-name",
@@ -51,7 +52,8 @@ public class CommitController {
             @PathVariable String hash,
             @RequestParam String url,
             @RequestParam(required = false) List<String> metrics
-    ) {
+    )
+    {
         return Map.of(
                 "repository", "project-name",
                 "commit", hash,

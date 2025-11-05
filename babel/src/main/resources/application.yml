@@ -1,0 +1,18 @@
+reference:
+  languages:
+    - language: Java
+      metrics:
+        - id: loc
+          name: Lines of Code
+          description: Количество строк кода
+        - id: files
+          name: Number of files
+          description: Количество файлов
+    - language: Kotlin
+      metrics:
+        - id: loc
+          name: Lines of Code
+          description: Количество строк кода
+        - id: files
+          name: Number of files
+          description: Количество файлов

@@ -16,7 +16,8 @@ public class RepositoryController {
     private GitRepositoryService gitRepositoryService;
 
     @PostMapping("/analyze")
-    public Map<String, Object> analyzeRepository(@RequestBody AnalyzeRequest request) throws Exception {
+    public Map<String, Object> analyzeRepository(@RequestBody AnalyzeRequest request) throws Exception
+    {
         File repoDir = gitRepositoryService.cloneRepository(request.getUrl());
         try {
             java.util.Map<String, Object> analysis = gitRepositoryService.analyzeRepository(repoDir);
@@ -32,12 +33,14 @@ public class RepositoryController {
         }
     }
 
-    private String extractRepoName(String url) {
+    private String extractRepoName(String url)
+    {
         String[] parts = url.split("/");
         return parts.length > 0 ? parts[parts.length - 1] : "unknown";
     }
 
-    private String extractOwner(String url) {
+    private String extractOwner(String url)
+    {
         String[] parts = url.split("/");
         return parts.length > 1 ? parts[parts.length - 2] : "unknown";
     }
