@@ -49,10 +49,13 @@ jobs:
           sparse-checkout: |
             frontend/
           sparse-checkout-cone-mode: false
-      - name: Set up Node.js
+
+      - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 22
+          # TODO(#14): caching https://github.com/actions/setup-node/blob/main/action.yml
+
       - name: Fetch dependencies
         run: npm install
       - name: Lint
@@ -60,3 +63,32 @@ jobs:
       - name: Build
         run: npm run build
 
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            backend/
+          sparse-checkout-cone-mode: false
+
+      - name: Setup JDK
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+            java-version: "21"
+            distribution: "corretto"
+            # TODO(#14): caching https://github.com/actions/setup-java?tab=readme-ov-file#caching-packages-dependencies
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b4ebab900eb7f3a1d93ef4c2 # v5.0.0
+        # TODO(#14): caching https://github.com/gradle/actions/blob/main/setup-gradle/action.yml
+
+      - name: Build
+        run: ./gradlew bootJar
+      - name: Test
+        run: ./gradlew test
