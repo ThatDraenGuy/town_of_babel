@@ -1,5 +1,6 @@
 package ru.itmo.babel.service;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 import ru.itmo.babel.service.ReferenceProperties;
 import ru.itmo.babel.dto.LanguageMetricsDTO;

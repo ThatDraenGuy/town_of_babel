@@ -3,6 +3,7 @@ package ru.itmo.babel.controller;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import ru.itmo.babel.dto.AnalyzeRequest;
+import ru.itmo.babel.entity.GitRepositoryEntity;
 import ru.itmo.babel.service.GitRepositoryService;
 
 import java.io.File;
@@ -10,27 +11,24 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/repository")
-public class RepositoryController {
+public class GitRepositoryController {
 
     @Autowired
     private GitRepositoryService gitRepositoryService;
 
     @PostMapping("/analyze")
-    public Map<String, Object> analyzeRepository(@RequestBody AnalyzeRequest request) throws Exception
-    {
-        File repoDir = gitRepositoryService.cloneRepository(request.getUrl());
-        try {
-            java.util.Map<String, Object> analysis = gitRepositoryService.analyzeRepository(repoDir);
+    public Map<String, Object> analyzeRepository(@RequestBody AnalyzeRequest request) throws Exception {
+        GitRepositoryEntity entity = gitRepositoryService.getOrCloneRepository(request.url());
 
-            return Map.of(
-                    "repository", extractRepoName(request.getUrl()),
-                    "owned", extractOwner(request.getUrl()),
-                    "path", repoDir.getAbsolutePath(),
-                    "analysis", analysis
-            );
-        } finally {
-            gitRepositoryService.cleanup(repoDir);
-        }
+        Map<String, Object> analysis = gitRepositoryService.analyzeRepository(new File(entity.getLocalPath()));
+
+        return Map.of(
+                "repositoryId", entity.getId(),
+                "repository", extractRepoName(request.url()),
+                "owner", extractOwner(request.url()),
+                "path", entity.getLocalPath(),
+                "analysis", analysis
+        );
     }
 
     private String extractRepoName(String url)
@@ -44,5 +42,4 @@ public class RepositoryController {
         String[] parts = url.split("/");
         return parts.length > 1 ? parts[parts.length - 2] : "unknown";
     }
-
 }
