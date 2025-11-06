@@ -1,3 +1,3 @@
-package ru.itmo.babel.dto;
+package ru.itmo.backend.dto;
 
 public record MetricDTO(String id, String name, String description) {}

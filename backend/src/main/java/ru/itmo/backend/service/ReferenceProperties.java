@@ -1,4 +1,4 @@
-package ru.itmo.babel.service;
+package ru.itmo.backend.service;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;

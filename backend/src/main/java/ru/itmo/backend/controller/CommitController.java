@@ -1,4 +1,4 @@
-package ru.itmo.babel.controller;
+package ru.itmo.backend.controller;
 
 import org.springframework.web.bind.annotation.*;
 import java.util.List;

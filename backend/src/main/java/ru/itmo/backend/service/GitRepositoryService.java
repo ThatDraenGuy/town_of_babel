@@ -1,10 +1,10 @@
-package ru.itmo.babel.service;
+package ru.itmo.backend.service;
 
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.stereotype.Service;
-import ru.itmo.babel.entity.GitRepositoryEntity;
-import ru.itmo.babel.repo.GitRepositoryEntityRepository;
+import ru.itmo.backend.entity.GitRepositoryEntity;
+import ru.itmo.backend.repo.GitRepositoryEntityRepository;
 
 import java.io.File;
 import java.io.IOException;

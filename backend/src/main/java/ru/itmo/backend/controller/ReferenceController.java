@@ -1,10 +1,8 @@
-package ru.itmo.babel.controller;
+package ru.itmo.backend.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import ru.itmo.babel.dto.LanguageMetricsDTO;
-import ru.itmo.babel.dto.ReferenceResponseDTO;
-import ru.itmo.babel.service.ReferenceService;
+import ru.itmo.backend.dto.LanguageMetricsDTO;
+import ru.itmo.backend.service.ReferenceService;
 
 import java.util.List;
 

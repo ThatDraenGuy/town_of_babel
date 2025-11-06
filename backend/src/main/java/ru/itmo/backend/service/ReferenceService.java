@@ -1,10 +1,8 @@
-package ru.itmo.babel.service;
+package ru.itmo.backend.service;
 
-import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
-import ru.itmo.babel.service.ReferenceProperties;
-import ru.itmo.babel.dto.LanguageMetricsDTO;
-import ru.itmo.babel.dto.MetricDTO;
+import ru.itmo.backend.dto.LanguageMetricsDTO;
+import ru.itmo.backend.dto.MetricDTO;
 
 import java.util.List;
 import java.util.stream.Collectors;

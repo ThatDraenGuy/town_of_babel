@@ -1,8 +1,8 @@
-package ru.itmo.babel.repo;
+package ru.itmo.backend.repo;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import ru.itmo.babel.entity.GitRepositoryEntity;
+import ru.itmo.backend.entity.GitRepositoryEntity;
 
 import java.util.Optional;
 

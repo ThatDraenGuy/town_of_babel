@@ -1,10 +1,10 @@
-package ru.itmo.babel.controller;
+package ru.itmo.backend.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import ru.itmo.babel.dto.AnalyzeRequest;
-import ru.itmo.babel.entity.GitRepositoryEntity;
-import ru.itmo.babel.service.GitRepositoryService;
+import ru.itmo.backend.dto.AnalyzeRequest;
+import ru.itmo.backend.entity.GitRepositoryEntity;
+import ru.itmo.backend.service.GitRepositoryService;
 
 import java.io.File;
 import java.util.Map;

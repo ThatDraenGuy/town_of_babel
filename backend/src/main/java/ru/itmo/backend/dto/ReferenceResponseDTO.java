@@ -1,4 +1,4 @@
-package ru.itmo.babel.dto;
+package ru.itmo.backend.dto;
 
 import java.util.List;
 
