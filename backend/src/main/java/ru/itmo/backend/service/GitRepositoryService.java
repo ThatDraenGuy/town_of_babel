@@ -16,6 +16,16 @@ import java.util.UUID;
 
 @Service
 public class GitRepositoryService {
+    public static class RepoHandle {
+        public final String name;
+        public final File dir;
+
+        public RepoHandle(String name, File dir) {
+            this.name = name;
+            this.dir = dir;
+        }
+    };
+
     private final GitRepositoryEntityRepository repositoryEntityRepository;
 
     public GitRepositoryService(GitRepositoryEntityRepository repositoryEntityRepository) {

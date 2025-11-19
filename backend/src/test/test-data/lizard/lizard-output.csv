@@ -1,0 +1,5 @@
+7,3,44,1,7,"H::A::first_function@8-14@test-codebases/cxx/test/a.cpp","test-codebases/cxx/test/a.cpp","H::A::first_function","H::A::first_function( int x)",8,14
+3,1,39,2,3,"H::A::second_function@16-18@test-codebases/cxx/test/a.cpp","test-codebases/cxx/test/a.cpp","H::A::second_function","H::A::second_function( std :: size_t i , std :: vector<char> bytes)",16,18
+4,1,41,3,4,"H::A::third_function@20-23@test-codebases/cxx/test/a.cpp","test-codebases/cxx/test/a.cpp","H::A::third_function","H::A::third_function( int x , int y , int z)",20,23
+1,1,8,0,1,"H::A::meow@11-11@test-codebases/cxx/test/a.hpp","test-codebases/cxx/test/a.hpp","H::A::meow","H::A::meow()",11,11
+1,1,8,0,1,"A::woof@19-19@test-codebases/cxx/test/a.hpp","test-codebases/cxx/test/a.hpp","A::woof","A::woof()",19,19
