@@ -1,0 +1,140 @@
+openapi: 3.0.1
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- url: http://localhost:8080
+  description: Generated server url
+paths:
+  /api/v1/repository/analyze:
+    post:
+      tags:
+      - git-repository-controller
+      operationId: analyzeRepository
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /api/v1/repository/commits:
+    get:
+      tags:
+      - commit-controller
+      operationId: getCommits
+      parameters:
+      - name: url
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 10
+      - name: metrics
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /api/v1/repository/commit/{hash}:
+    get:
+      tags:
+      - commit-controller
+      operationId: getCommit
+      parameters:
+      - name: hash
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: url
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: metrics
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /api/v1/reference:
+    get:
+      tags:
+      - reference-controller
+      operationId: getReference
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LanguageMetricsDTO"
+components:
+  schemas:
+    AnalyzeRequest:
+      type: object
+      properties:
+        url:
+          type: string
+    LanguageMetricsDTO:
+      type: object
+      properties:
+        language:
+          type: string
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricDTO"
+    MetricDTO:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
