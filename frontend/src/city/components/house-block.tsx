@@ -18,9 +18,9 @@ export const HouseBlock: React.FC<TProps> = ({ data, position, ...props }) => {
     <mesh
       {...props}
       position={[
-        position[0],
+        position[0] + data.position[0] + data.dimensions[0] / 2,
         position[1] + data.dimensions[1] / 2,
-        position[2],
+        position[2] + data.position[1] + data.dimensions[2] / 2,
       ]}
     >
       <boxGeometry args={data.dimensions} />

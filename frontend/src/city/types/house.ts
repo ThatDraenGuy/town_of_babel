@@ -33,6 +33,7 @@ export interface ResolvedHouseBlockData {
   name: string;
   houses: ResolvedHouseData[];
   dimensions: [width: number, height: number, length: number];
+  position: [x: number, z: number];
 }
 
 export type ResolvedBlockData =
@@ -41,6 +42,7 @@ export type ResolvedBlockData =
       name: string;
       blocks: ResolvedBlockData[];
       dimensions: [width: number, height: number, length: number];
+      position: [x: number, z: number];
       type: 'blocks';
     };
 

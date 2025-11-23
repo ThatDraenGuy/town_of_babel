@@ -41,6 +41,7 @@ export const SimpleSplitResolver: HouseBlockResolver = data => {
     name: data.name,
     houses: resolved.houses,
     dimensions: [resolved.width, resolved.height, sideLen],
+    position: [0, 0],
   };
 };
 
@@ -69,26 +70,91 @@ export const GappedHouseBlockResolver = (
   };
 };
 
-// export const SimpleBlockResolver = (
-//   houseBlockResolver: HouseBlockResolver,
-// ): BlockResolver => {
-//   return data => {
-//     if (isHouse(data)) return houseBlockResolver(data);
-//     const resolved = _.map(
-//       data.blocks,
-//       SimpleBlockResolver(houseBlockResolver),
-//     );
-//     const sorted = _.sortBy(resolved, 'name');
-//     const maxWidth = _.maxBy(resolved, item => item.dimensions[0]);
-//     const totalWidth = _.sumBy(resolved, item => item.dimensions[0]);
+const BLOCK_BORDER = 0.7;
+const BLOCK_GAP = 0.4;
 
-//     _.reduce(
-//       sorted,
-//       (acc: ResolvedBlockData[][], block) => {
+export const SimpleBlockResolver = (
+  houseBlockResolver: HouseBlockResolver,
+): BlockResolver => {
+  return data => {
+    if (isHouse(data))
+      return {
+        ...houseBlockResolver(data),
+        type: 'houses',
+      };
+    const resolved = _.map(
+      data.blocks,
+      SimpleBlockResolver(houseBlockResolver),
+    );
+    const sorted = _.sortBy(resolved, 'name');
+    const maxWidth =
+      _.maxBy(resolved, item => item.dimensions[0])?.dimensions[0] ?? 0;
 
-//         return [[]];
-//       },
-//       [[]],
-//     );
-//   };
-// };
+    const maxHeight =
+      _.maxBy(resolved, item => item.dimensions[1])?.dimensions[1] ?? 0;
+
+    const levelled = _.reduce(
+      sorted,
+      (
+        acc: { length: number; width: number; levels: ResolvedBlockData[][] },
+        block,
+      ) => {
+        const currLevel = _.last(acc.levels);
+        if (acc.width + block.dimensions[0] + BLOCK_GAP > maxWidth) {
+          const maxLevelLength =
+            _.maxBy(currLevel, item => item.dimensions[2])?.dimensions[2] ?? 0;
+          return {
+            length: acc.length + maxLevelLength,
+            width: block.dimensions[0],
+            levels: [
+              ...acc.levels,
+              [
+                {
+                  ...block,
+                  position: [
+                    0 + BLOCK_BORDER,
+                    acc.length +
+                      maxLevelLength +
+                      BLOCK_BORDER +
+                      _.size(acc.levels) * BLOCK_GAP,
+                  ] as [number, number],
+                },
+              ],
+            ],
+          };
+        }
+
+        currLevel?.push({
+          ...block,
+          position: [
+            acc.width + BLOCK_BORDER + _.size(currLevel) * BLOCK_GAP,
+            acc.length + BLOCK_BORDER + (_.size(acc.levels) - 1) * BLOCK_GAP,
+          ],
+        });
+        return {
+          ...acc,
+          width: acc.width + block.dimensions[0],
+        };
+      },
+      { length: 0, width: 0, levels: [[]] },
+    );
+
+    const actualLength =
+      levelled.length +
+      (_.maxBy(_.last(levelled.levels), item => item.dimensions[2])
+        ?.dimensions[2] ?? 0);
+    return {
+      name: data.name,
+      blocks: _.flatten(levelled.levels),
+      dimensions: [
+        maxWidth + 2 * BLOCK_BORDER,
+        maxHeight,
+        actualLength +
+          2 * BLOCK_BORDER +
+          (_.size(levelled.levels) - 1) * BLOCK_GAP,
+      ],
+      position: [0, 0],
+      type: data.type,
+    };
+  };
+};
