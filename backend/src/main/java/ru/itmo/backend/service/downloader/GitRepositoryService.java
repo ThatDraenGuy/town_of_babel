@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import ru.itmo.backend.entity.GitRepositoryEntity;
-import ru.itmo.backend.repo.GitRepositoryEntityRepository;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,35 +19,40 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Service responsible for cloning and managing Git repositories on disk.
+ * Delegates repository access and TTL updates to {@link RepositoryAccessService}.
+ */
 @Service
 public class GitRepositoryService {
+
     private static final Logger log = LoggerFactory.getLogger(GitRepositoryService.class);
 
-    private final GitRepositoryEntityRepository repositoryEntityRepository;
-    private final Path storagePath;
-    private final long expireHours;
     private final GitClient gitClient;
     private final FileManager fileManager;
+    private final Path storagePath;
+    private final long expireHours;
+    private final RepositoryAccessService repositoryAccessService;
 
     /**
-     * Creates the repository service with configured storage location and expiration timeout.
+     * Constructs GitRepositoryService.
      *
-     * @param repositoryEntityRepository JPA repository for GitRepositoryEntity
-     * @param gitClient                  abstraction of Git operations (mocked in tests)
-     * @param fileManager                abstraction over filesystem operations (mocked in tests)
-     * @param storagePath                base directory where repositories will be stored
-     * @param expireHours                TTL of cached repositories in hours
+     * @param gitClient               abstraction for Git operations
+     * @param fileManager             abstraction for filesystem operations
+     * @param repositoryAccessService wrapper for repository access and TTL updates
+     * @param storagePath             base directory for storing repositories
+     * @param expireHours             TTL in hours for cached repositories
      */
     public GitRepositoryService(
-            GitRepositoryEntityRepository repositoryEntityRepository,
             GitClient gitClient,
             FileManager fileManager,
+            RepositoryAccessService repositoryAccessService,
             @Value("${repository.storage.path}") String storagePath,
             @Value("${repository.expire.hours}") long expireHours
     ) {
-        this.repositoryEntityRepository = repositoryEntityRepository;
         this.gitClient = gitClient;
         this.fileManager = fileManager;
+        this.repositoryAccessService = repositoryAccessService;
         this.storagePath = Path.of(storagePath);
         this.expireHours = expireHours;
 
@@ -61,24 +65,15 @@ public class GitRepositoryService {
     }
 
     /**
-     * Returns current time. Overridden in tests.
+     * Returns current time. Can be overridden in tests.
      */
     protected LocalDateTime now() {
         return LocalDateTime.now();
     }
 
     /**
-     * Checks whether the cached repository entry has expired.
-     *
-     * @param entity repository metadata entity
-     * @return true if expired, false otherwise
-     */
-    protected boolean isExpired(GitRepositoryEntity entity) {
-        return now().isAfter(entity.getExpiresAt());
-    }
-
-    /**
-     * Retrieves an existing cached repository or clones a new one if not present or expired.
+     * Retrieves an existing cached repository by URL or clones a new one if absent or expired.
+     * TTL for existing repositories is updated via {@link RepositoryAccessService}.
      *
      * @param repoUrl URL of the Git repository
      * @return GitRepositoryEntity containing metadata about the stored repository
@@ -87,28 +82,26 @@ public class GitRepositoryService {
      */
     public GitRepositoryEntity getOrCloneRepository(String repoUrl) throws GitAPIException, IOException {
 
-        Optional<GitRepositoryEntity> existing = repositoryEntityRepository.findByUrl(repoUrl);
-
+        // Check if repository exists and refresh TTL if present
+        Optional<GitRepositoryEntity> existing = repositoryAccessService.accessRepositoryByUrl(repoUrl);
         if (existing.isPresent()) {
             GitRepositoryEntity entity = existing.get();
             File localDir = new File(entity.getLocalPath());
 
-            if (localDir.exists() && !isExpired(entity)) {
+            if (localDir.exists()) {
                 log.info("Using cached repository: {}", entity.getLocalPath());
                 return entity;
             } else {
-                log.info("Cached repository expired or missing. Cleaning up... (path={})", entity.getLocalPath());
-                System.out.println();
+                log.info("Cached repository missing on disk. Cleaning up database entry: {}", entity.getLocalPath());
                 fileManager.deleteDirectory(localDir);
-                repositoryEntityRepository.delete(entity);
             }
         }
 
+        // Clone new repository
         Path repoDir = storagePath.resolve(UUID.randomUUID().toString());
         Files.createDirectories(repoDir);
 
-        log.info("Cloning repository: {}" ,repoUrl);
-
+        log.info("Cloning repository: {}", repoUrl);
         try {
             gitClient.cloneRepo(repoUrl, repoDir.toFile());
         } catch (Exception e) {
@@ -124,19 +117,17 @@ public class GitRepositoryService {
         entity.setCreatedAt(now());
         entity.setExpiresAt(now().plusHours(expireHours));
 
-        repositoryEntityRepository.save(entity);
-
-        System.out.println();
+        repositoryAccessService.refreshTTL(entity);
         log.info("Repository cloned and saved: id={}, path={}", entity.getId(), entity.getLocalPath());
         return entity;
     }
 
     /**
-     * Performs a simple analysis of the repository directory.
+     * Analyzes the repository directory.
      * Counts total files and total Java lines.
      *
      * @param repoDir directory of the repository
-     * @return Map-like structure with analysis metrics
+     * @return Map containing "total_files" and "java_lines"
      * @throws IOException if reading files fails
      */
     public Map<String, Object> analyzeRepository(File repoDir) throws IOException {
@@ -162,19 +153,18 @@ public class GitRepositoryService {
     }
 
     /**
-     * Performs a single cleanup pass: deletes expired repositories.
-     * Intended for direct invocation in tests.
+     * Deletes expired repositories from disk and database.
+     * Intended for manual or test invocation.
      */
     public void cleanupExpiredRepositoriesOnce() {
-        List<GitRepositoryEntity> expiredRepos = repositoryEntityRepository.findAll().stream()
-                .filter(this::isExpired)
-                .toList();
-
-        for (GitRepositoryEntity entity : expiredRepos) {
-            fileManager.deleteDirectory(new File(entity.getLocalPath()));
-            repositoryEntityRepository.delete(entity);
-            log.info("Deleted expired repository: {}", entity.getId());
-        }
+        repositoryAccessService
+                .repositoryEntityRepository.findAll().stream()
+                .filter(repo -> now().isAfter(repo.getExpiresAt()))
+                .forEach(repo -> {
+                    fileManager.deleteDirectory(new File(repo.getLocalPath()));
+                    repositoryAccessService.repositoryEntityRepository.delete(repo);
+                    log.info("Deleted expired repository: {}", repo.getId());
+                });
     }
 
     /**

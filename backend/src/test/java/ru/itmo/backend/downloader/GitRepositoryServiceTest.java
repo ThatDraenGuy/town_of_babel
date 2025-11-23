@@ -4,6 +4,7 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.context.ActiveProfiles;
 import ru.itmo.backend.entity.GitRepositoryEntity;
 import ru.itmo.backend.repo.GitRepositoryEntityRepository;
 import ru.itmo.backend.service.downloader.FileManager;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.*;
  * All external interactions (Git, filesystem, database)
  * are mocked to ensure pure unit-test behavior.
  */
+@ActiveProfiles("h2")
 public class GitRepositoryServiceTest {
 
     private GitRepositoryEntityRepository repo;

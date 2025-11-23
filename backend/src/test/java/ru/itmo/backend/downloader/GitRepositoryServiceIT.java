@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * This verifies the complete end-to-end behavior without mocks.
  */
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles("h2")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class GitRepositoryServiceIT {
 
