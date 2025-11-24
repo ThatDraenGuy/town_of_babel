@@ -16,7 +16,8 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Service responsible for cloning Git projects and managing projects on disk.
@@ -33,6 +34,8 @@ public class GitProjectService {
     private final Path storagePath;
     private final long expireHours;
 
+    private static final Pattern GITHUB_REGEX =
+            Pattern.compile("github\\.com[:/](.+?)/(.+?)(\\.git)?$");
     /**
      * Constructs GitRepositoryService.
      *
@@ -127,34 +130,20 @@ public class GitProjectService {
         return entity;
     }
 
-    /**
-     * Performs project analysis:
-     *  - counts total files
-     *  - counts Java lines
-     *
-     * @param projectDir the root of the project on disk
-     * @return map containing analysis results
-     */
-    public Map<String, Object> analyzeProject(File projectDir) throws IOException {
-        AtomicLong totalFiles = new AtomicLong();
-        AtomicLong javaLines = new AtomicLong();
-
-        Files.walk(projectDir.toPath()).forEach(path -> {
-            try {
-                if (Files.isRegularFile(path)) {
-                    totalFiles.incrementAndGet();
-                    if (path.toString().endsWith(".java")) {
-                        javaLines.addAndGet(Files.lines(path).count());
-                    }
-                }
-            } catch (IOException ignored) { }
-        });
-
+    public Map<String, String> parseGithubUrl(String url) {
+        Matcher matcher = GITHUB_REGEX.matcher(url);
+        if (matcher.find()) {
+            return Map.of(
+                    "owner", matcher.group(1),
+                    "repo", matcher.group(2)
+            );
+        }
         return Map.of(
-                "total_files", totalFiles.get(),
-                "java_lines", javaLines.get()
+                "owner", "unknown",
+                "repo", "unknown"
         );
     }
+
 
     /**
      * Deletes all projects whose TTL has expired.

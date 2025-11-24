@@ -15,7 +15,6 @@ import ru.itmo.backend.service.GitCommitService;
  * Base path: /api/projects
  */
 @RestController
-@RequestMapping("/api/projects")
 public class GitCommitController {
 
     private final GitProjectEntityRepository projectRepository;
