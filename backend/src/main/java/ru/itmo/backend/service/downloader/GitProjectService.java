@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import ru.itmo.backend.entity.GitRepositoryEntity;
+import ru.itmo.backend.entity.GitProjectEntity;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,17 +19,17 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Service responsible for cloning Git repositories and managing repositories on disk.
- * All DB operations must be done exclusively via {@link RepositoryAccessService}.
+ * Service responsible for cloning Git projects and managing projects on disk.
+ * All DB operations must be done exclusively via {@link ProjectAccessService}.
  */
 @Service
-public class GitRepositoryService {
+public class GitProjectService {
 
-    private static final Logger log = LoggerFactory.getLogger(GitRepositoryService.class);
+    private static final Logger log = LoggerFactory.getLogger(GitProjectService.class);
 
     private final GitClient gitClient;
     private final FileManager fileManager;
-    private final RepositoryAccessService repositoryAccessService;
+    private final ProjectAccessService projectAccessService;
     private final Path storagePath;
     private final long expireHours;
 
@@ -38,20 +38,20 @@ public class GitRepositoryService {
      *
      * @param gitClient               abstraction of Git operations
      * @param fileManager             abstraction of filesystem operations
-     * @param repositoryAccessService service that manages repository metadata and TTL
-     * @param storagePath             base directory where repositories are stored
-     * @param expireHours             TTL of cached repositories in hours
+     * @param projectAccessService    service that manages project metadata and TTL
+     * @param storagePath             base directory where projects are stored
+     * @param expireHours             TTL of cached projects in hours
      */
-    public GitRepositoryService(
+    public GitProjectService(
             GitClient gitClient,
             FileManager fileManager,
-            RepositoryAccessService repositoryAccessService,
+            ProjectAccessService projectAccessService,
             @Value("${repository.storage.path}") String storagePath,
             @Value("${repository.expire.hours}") long expireHours
     ) {
         this.gitClient = gitClient;
         this.fileManager = fileManager;
-        this.repositoryAccessService = repositoryAccessService;
+        this.projectAccessService = projectAccessService;
         this.storagePath = Path.of(storagePath);
         this.expireHours = expireHours;
 
@@ -72,74 +72,74 @@ public class GitRepositoryService {
     }
 
     /**
-     * Retrieves repository by URL or clones a fresh copy if:
+     * Retrieves projects by URL or clones a fresh copy if:
      *  - it does not exist
      *  - or its directory is missing
      *
-     * TTL refresh is handled by {@link RepositoryAccessService}.
+     * TTL refresh is handled by {@link ProjectAccessService}.
      *
-     * @param repoUrl Git repository URL
+     * @param repoUrl Git project URL
      * @return metadata of the stored/updated repository
      */
-    public GitRepositoryEntity getOrCloneRepository(String repoUrl) throws GitAPIException, IOException {
+    public GitProjectEntity getOrCloneProject(String repoUrl) throws GitAPIException, IOException {
 
-        // Look up existing repository and auto-refresh TTL
-        Optional<GitRepositoryEntity> existing = repositoryAccessService.accessRepositoryByUrl(repoUrl);
+        // Look up existing project and auto-refresh TTL
+        Optional<GitProjectEntity> existing = projectAccessService.accessRepositoryByUrl(repoUrl);
 
         if (existing.isPresent()) {
-            GitRepositoryEntity repo = existing.get();
-            File dir = new File(repo.getLocalPath());
+            GitProjectEntity project = existing.get();
+            File dir = new File(project.getLocalPath());
 
             if (dir.exists()) {
-                log.info("Using cached repository: {}", repo.getLocalPath());
-                return repo;
+                log.info("Using cached repository: {}", project.getLocalPath());
+                return project;
             }
 
             // Directory is missing — clean up metadata
-            log.warn("Repository directory missing, removing stale metadata: {}", repo.getId());
-            repositoryAccessService.delete(repo);
+            log.warn("Repository directory missing, removing stale metadata: {}", project.getId());
+            projectAccessService.delete(project);
         }
 
         // Clone a fresh repository
-        Path repoDir = storagePath.resolve(UUID.randomUUID().toString());
-        Files.createDirectories(repoDir);
+        Path projectDir = storagePath.resolve(UUID.randomUUID().toString());
+        Files.createDirectories(projectDir);
 
-        log.info("Cloning repository: {}", repoUrl);
+        log.info("Cloning project: {}", repoUrl);
 
         try {
-            gitClient.cloneRepo(repoUrl, repoDir.toFile());
+            gitClient.cloneProject(repoUrl, projectDir.toFile());
         } catch (Exception ex) {
-            log.error("Clone failed for {} — cleaning up directory {}", repoUrl, repoDir, ex);
-            fileManager.deleteDirectory(repoDir.toFile());
+            log.error("Clone failed for {} — cleaning up directory {}", repoUrl, projectDir, ex);
+            fileManager.deleteDirectory(projectDir.toFile());
             throw ex;
         }
 
         // Save metadata
-        GitRepositoryEntity entity = new GitRepositoryEntity();
+        GitProjectEntity entity = new GitProjectEntity();
         entity.setUrl(repoUrl);
-        entity.setLocalPath(repoDir.toString());
+        entity.setLocalPath(projectDir.toString());
         entity.setCreatedAt(now());
         entity.setExpiresAt(now().plusHours(expireHours));
 
-        repositoryAccessService.save(entity);
+        projectAccessService.save(entity);
 
-        log.info("Repository cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
+        log.info("Project cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
         return entity;
     }
 
     /**
-     * Performs repository analysis:
+     * Performs project analysis:
      *  - counts total files
      *  - counts Java lines
      *
-     * @param repoDir the root of the repository on disk
+     * @param projectDir the root of the project on disk
      * @return map containing analysis results
      */
-    public Map<String, Object> analyzeRepository(File repoDir) throws IOException {
+    public Map<String, Object> analyzeProject(File projectDir) throws IOException {
         AtomicLong totalFiles = new AtomicLong();
         AtomicLong javaLines = new AtomicLong();
 
-        Files.walk(repoDir.toPath()).forEach(path -> {
+        Files.walk(projectDir.toPath()).forEach(path -> {
             try {
                 if (Files.isRegularFile(path)) {
                     totalFiles.incrementAndGet();
@@ -157,16 +157,16 @@ public class GitRepositoryService {
     }
 
     /**
-     * Deletes all repositories whose TTL has expired.
-     * Uses {@link RepositoryAccessService} for all DB operations.
+     * Deletes all projects whose TTL has expired.
+     * Uses {@link ProjectAccessService} for all DB operations.
      */
-    public void cleanupExpiredRepositoriesOnce() {
-        var expired = repositoryAccessService.findExpired(now());
+    public void cleanupExpiredProjectOnce() {
+        var expired = projectAccessService.findExpired(now());
 
-        for (GitRepositoryEntity repo : expired) {
-            log.info("Removing expired repository: {}", repo.getId());
-            fileManager.deleteDirectory(new File(repo.getLocalPath()));
-            repositoryAccessService.delete(repo);
+        for (GitProjectEntity project : expired) {
+            log.info("Removing expired repository: {}", project.getId());
+            fileManager.deleteDirectory(new File(project.getLocalPath()));
+            projectAccessService.delete(project);
         }
     }
 
@@ -174,7 +174,7 @@ public class GitRepositoryService {
      * Scheduled cleanup job, executed every hour.
      */
     @Scheduled(fixedRate = 60 * 60 * 1000)
-    public void cleanupExpiredRepositories() {
-        cleanupExpiredRepositoriesOnce();
+    public void cleanupExpiredProjects() {
+        cleanupExpiredProjectOnce();
     }
 }

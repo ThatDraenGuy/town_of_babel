@@ -7,8 +7,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import ru.itmo.backend.dto.request.AnalyzeRequest;
-import ru.itmo.backend.entity.GitRepositoryEntity;
-import ru.itmo.backend.service.downloader.GitRepositoryService;
+import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.service.downloader.GitProjectService;
 
 import java.io.File;
 import java.util.Map;
@@ -16,14 +16,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @RestController
-@RequestMapping("/api/v1/repository")
+@RequestMapping("/api/v1/project")
 @Tag(
-        name = "Git Repository API",
-        description = "Endpoints for cloning, caching, and analyzing GitHub repositories"
+        name = "Git project API",
+        description = "Endpoints for cloning, caching, and analyzing GitHub projects"
 )
-public class GitRepositoryController {
+public class GitProjectController {
 
-    private final GitRepositoryService gitRepositoryService;
+    private final GitProjectService gitProjectService;
 
     /** Regex that supports:
      *  - https://github.com/user/repo
@@ -34,14 +34,14 @@ public class GitRepositoryController {
     private static final Pattern GITHUB_REGEX =
             Pattern.compile("github\\.com[:/](.+?)/(.+?)(\\.git)?$");
 
-    public GitRepositoryController(GitRepositoryService gitRepositoryService) {
-        this.gitRepositoryService = gitRepositoryService;
+    public GitProjectController(GitProjectService gitProjectService) {
+        this.gitProjectService = gitProjectService;
     }
 
     @Operation(
-            summary = "Analyze a GitHub repository",
+            summary = "Analyze a GitHub project",
             description = """
-                Clones the repository if it is not cached yet, stores metadata in the database,
+                Clones the project if it is not cached yet, stores metadata in the database,
                 and performs static analysis (languages, metrics, etc.).
                 """,
             responses = {
@@ -52,10 +52,10 @@ public class GitRepositoryController {
                                     mediaType = "application/json",
                                     schema = @Schema(example = """
                                         {
-                                          "repositoryId": 12,
-                                          "repository": "my-repo",
+                                          "projectId": 12,
+                                          "project": "my-repo",
                                           "owner": "octocat",
-                                          "path": "/tmp/repositories/repo-12",
+                                          "path": "/tmp/projects/repo-12",
                                           "analysis": {
                                             "languages": {
                                               "Java": 12412,
@@ -79,12 +79,12 @@ public class GitRepositoryController {
     @PostMapping("/analyze")
     public Map<String, Object> analyzeRepository(@RequestBody AnalyzeRequest request) throws Exception {
 
-        GitRepositoryEntity entity = gitRepositoryService.getOrCloneRepository(request.url());
-        Map<String, Object> analysis = gitRepositoryService.analyzeRepository(new File(entity.getLocalPath()));
+        GitProjectEntity entity = gitProjectService.getOrCloneProject(request.url());
+        Map<String, Object> analysis = gitProjectService.analyzeProject(new File(entity.getLocalPath()));
 
         return Map.of(
-                "repositoryId", entity.getId(),
-                "repository", extractRepositoryName(request.url()),
+                "projectId", entity.getId(),
+                "project", extractRepositoryName(request.url()),
                 "owner", extractOwner(request.url()),
                 "path", entity.getLocalPath(),
                 "analysis", analysis

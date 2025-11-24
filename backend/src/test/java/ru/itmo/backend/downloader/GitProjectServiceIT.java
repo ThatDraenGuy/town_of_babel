@@ -3,12 +3,11 @@ package ru.itmo.backend.downloader;
 import org.eclipse.jgit.api.Git;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import ru.itmo.backend.entity.GitRepositoryEntity;
-import ru.itmo.backend.repo.GitRepositoryEntityRepository;
-import ru.itmo.backend.service.downloader.GitRepositoryService;
+import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.repo.GitProjectEntityRepository;
+import ru.itmo.backend.service.downloader.GitProjectService;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -18,19 +17,19 @@ import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration tests for {@link GitRepositoryService}.
+ * Integration tests for {@link GitProjectService}.
  * Each test is fully isolated and does not depend on the others.
  */
 @SpringBootTest
 @ActiveProfiles("h2")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class GitRepositoryServiceIT {
+class GitProjectServiceIT {
 
     @Autowired
-    private GitRepositoryService service;
+    private GitProjectService service;
 
     @Autowired
-    private GitRepositoryEntityRepository repo;
+    private GitProjectEntityRepository repo;
 
     private Path tempGitRepo;
 
@@ -87,7 +86,7 @@ class GitRepositoryServiceIT {
 
         String url = repoCopy.toUri().toString();
 
-        GitRepositoryEntity entity = service.getOrCloneRepository(url);
+        GitProjectEntity entity = service.getOrCloneProject(url);
 
         assertNotNull(entity.getId(), "Entity ID should be generated and not null");
         assertEquals(url, entity.getUrl(), "Entity URL should match the cloned URL");
@@ -110,8 +109,8 @@ class GitRepositoryServiceIT {
 
         String url = repoCopy.toUri().toString();
 
-        GitRepositoryEntity first = service.getOrCloneRepository(url);
-        GitRepositoryEntity second = service.getOrCloneRepository(url);
+        GitProjectEntity first = service.getOrCloneProject(url);
+        GitProjectEntity second = service.getOrCloneProject(url);
 
         assertEquals(first.getId(), second.getId(), "IDs should match for cached repository");
         assertEquals(first.getLocalPath(), second.getLocalPath(), "Local paths should match for cached repository");
@@ -133,14 +132,14 @@ class GitRepositoryServiceIT {
 
         String url = repoCopy.toUri().toString();
 
-        GitRepositoryEntity entity = service.getOrCloneRepository(url);
+        GitProjectEntity entity = service.getOrCloneProject(url);
 
         // Manually expire repository
         entity.setExpiresAt(LocalDateTime.now().minusDays(1));
         repo.save(entity);
 
         // Run cleanup
-        service.cleanupExpiredRepositoriesOnce();
+        service.cleanupExpiredProjectOnce();
 
         assertFalse(repo.findById(entity.getId()).isPresent(), "Expired repository should be removed from database");
         assertFalse(new File(entity.getLocalPath()).exists(), "Expired repository directory should be deleted");

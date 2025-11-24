@@ -4,9 +4,9 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "repositories",
+@Table(name = "projects",
        uniqueConstraints = @UniqueConstraint(columnNames = "url"))
-public class GitRepositoryEntity {
+public class GitProjectEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,9 +22,9 @@ public class GitRepositoryEntity {
 
     private LocalDateTime expiresAt;
 
-    public GitRepositoryEntity() {}
+    public GitProjectEntity() {}
 
-    public GitRepositoryEntity(String url, String localPath, LocalDateTime createdAt, LocalDateTime expiresAt)
+    public GitProjectEntity(String url, String localPath, LocalDateTime createdAt, LocalDateTime expiresAt)
     {
         this.url = url;
         this.localPath = localPath;

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class JGitClient implements GitClient {
     @Override
-    public void cloneRepo(String url, File dir) throws GitAPIException {
+    public void cloneProject(String url, File dir) throws GitAPIException {
         Git.cloneRepository()
                 .setURI(url)
                 .setDirectory(dir)

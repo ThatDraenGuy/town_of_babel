@@ -1,55 +1,74 @@
 package ru.itmo.backend.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.itmo.backend.entity.GitRepositoryEntity;
-import ru.itmo.backend.repo.GitRepositoryEntityRepository;
-import ru.itmo.backend.service.GitCommitService;
 import ru.itmo.backend.dto.response.BranchDTO;
 import ru.itmo.backend.dto.response.CommitDTO;
+import ru.itmo.backend.dto.response.PageResponse;
+import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.repo.GitProjectEntityRepository;
+import ru.itmo.backend.service.GitCommitService;
 
-import java.util.List;
-
+/**
+ * Controller exposing endpoints to list branches and commits with pagination.
+ *
+ * Base path: /api/projects
+ */
 @RestController
-@RequestMapping("/api/repos")
+@RequestMapping("/api/projects")
 public class GitCommitController {
 
-    private final GitRepositoryEntityRepository repoRepository;
+    private final GitProjectEntityRepository projectRepository;
     private final GitCommitService commitService;
 
-    @Autowired
-    public GitCommitController(GitRepositoryEntityRepository repoRepository,
+    public GitCommitController(GitProjectEntityRepository projectRepository,
                                GitCommitService commitService) {
-        this.repoRepository = repoRepository;
+        this.projectRepository = projectRepository;
         this.commitService = commitService;
     }
 
     /**
-     * Returns a paginated list of branches for a repository.
+     * Returns a paginated list of branches.
+     *
+     * @param projectId project DB id
+     * @param page page index (0-based)
+     * @param pageSize page size
+     * @return paginated branch DTOs
+     * @throws Exception on git errors
      */
-    @GetMapping("/{repoId}/branches")
-    public List<BranchDTO> getBranches(
-            @PathVariable Long repoId,
+    @GetMapping("/{projectId}/branches")
+    public ResponseEntity<PageResponse<BranchDTO>> getBranches(
+            @PathVariable Long projectId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) throws Exception {
-        GitRepositoryEntity repo = repoRepository.findById(repoId)
-                .orElseThrow(() -> new IllegalArgumentException("Repository not found: " + repoId));
-        return commitService.listBranches(repo, page, pageSize);
+        GitProjectEntity project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+
+        PageResponse<BranchDTO> response = commitService.listBranches(project, page, pageSize);
+        return ResponseEntity.ok(response);
     }
 
     /**
-     * Returns a paginated list of commits for a branch.
+     * Returns a paginated list of commits for a given branch.
+     *
+     * @param projectId project DB id
+     * @param branch branch name
+     * @param page page index (0-based)
+     * @param pageSize page size
+     * @return paginated commit DTOs
+     * @throws Exception on git errors
      */
-    @GetMapping("/{repoId}/branches/{branch}/commits")
-    public List<CommitDTO> getCommits(
-            @PathVariable Long repoId,
+    @GetMapping("/{projectId}/branches/{branch}/commits")
+    public ResponseEntity<PageResponse<CommitDTO>> getCommits(
+            @PathVariable Long projectId,
             @PathVariable String branch,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) throws Exception {
-        GitRepositoryEntity repo = repoRepository.findById(repoId)
-                .orElseThrow(() -> new IllegalArgumentException("Repository not found: " + repoId));
-        return commitService.listCommits(repo, branch, page, pageSize);
+        GitProjectEntity repo = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Repository not found: " + projectId));
+        PageResponse<CommitDTO> response = commitService.listCommits(repo, branch, page, pageSize);
+        return ResponseEntity.ok(response);
     }
 }
