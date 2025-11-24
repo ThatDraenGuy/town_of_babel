@@ -2,7 +2,7 @@ package ru.itmo.backend.controller;
 
 import org.springframework.web.bind.annotation.*;
 import ru.itmo.backend.dto.LanguageMetricsDTO;
-import ru.itmo.backend.service.ReferenceService;
+import ru.itmo.backend.service.reference.ReferenceService;
 
 import java.util.List;
 

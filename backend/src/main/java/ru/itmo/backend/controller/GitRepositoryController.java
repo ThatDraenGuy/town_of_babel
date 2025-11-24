@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
-import ru.itmo.backend.dto.AnalyzeRequest;
+import ru.itmo.backend.dto.request.AnalyzeRequest;
 import ru.itmo.backend.entity.GitRepositoryEntity;
 import ru.itmo.backend.service.downloader.GitRepositoryService;
 
