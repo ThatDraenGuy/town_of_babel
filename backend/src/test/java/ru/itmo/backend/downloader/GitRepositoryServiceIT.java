@@ -19,22 +19,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for {@link GitRepositoryService}.
- * <p>
- * These tests exercise the end-to-end functionality including:
- * - real Git cloning via JGit,
- * - writing and reading repository entities from the database,
- * - filesystem operations (creating and deleting directories),
- * - expiration and cleanup of cached repositories.
- * </p>
- * <p>
- * The tests use:
- * - H2 in-memory database (via active profile "h2"),
- * - a temporary local Git repository created before all tests.
- * </p>
+ * Each test is fully isolated and does not depend on the others.
  */
 @SpringBootTest
 @ActiveProfiles("h2")
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class GitRepositoryServiceIT {
 
     @Autowired
@@ -43,127 +32,119 @@ class GitRepositoryServiceIT {
     @Autowired
     private GitRepositoryEntityRepository repo;
 
-    @Value("${repository.storage.path}")
-    private String storagePath;
-
-    private static Path tempGitRepo;
+    private Path tempGitRepo;
 
     /**
-     * Sets up a temporary Git repository on the local filesystem before all tests.
-     * <p>
-     * This repository is initialized, a single file is added and committed.
-     * Tests will clone from this repository to verify end-to-end behavior.
-     * </p>
-     *
-     * @throws Exception if filesystem or Git operations fail
+     * Create a bare temporary Git repository before all tests.
      */
     @BeforeAll
-    static void createLocalGitRepo() throws Exception {
+    void setupGitRepo() throws Exception {
         tempGitRepo = Files.createTempDirectory("local-git-repo-");
 
         Git.init().setDirectory(tempGitRepo.toFile()).call();
-
-        // create a test Java file
         Files.writeString(tempGitRepo.resolve("TestFile.java"), "class A {}");
 
-        // commit the file
         Git.open(tempGitRepo.toFile())
                 .add().addFilepattern(".").call();
         Git.open(tempGitRepo.toFile())
                 .commit().setMessage("initial commit").call();
-
-        System.out.println("Created temp git repo at: " + tempGitRepo);
     }
 
     /**
      * Cleans up the temporary Git repository after all tests.
-     * Deletes all files and directories recursively.
-     *
-     * @throws Exception if filesystem deletion fails
      */
     @AfterAll
-    static void cleanup() throws Exception {
-        Files.walk(tempGitRepo)
-                .sorted((a, b) -> b.compareTo(a))
-                .forEach(path -> path.toFile().delete());
+    void cleanupGitRepo() throws Exception {
+        deleteRecursively(tempGitRepo.toFile());
     }
 
     /**
-     * Test: Cloning a repository.
-     * <p>
-     * This test verifies that:
-     * 1. The repository is cloned from the local Git URL.
-     * 2. A new repository entity is saved in the database.
-     * 3. The repository directory is created on the filesystem.
-     * </p>
-     *
-     * @throws Exception if cloning or filesystem operations fail
+     * Deletes a directory recursively.
+     */
+    private void deleteRecursively(File file) {
+        if (file.exists()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    deleteRecursively(f);
+                }
+            }
+            file.delete();
+        }
+    }
+
+    /**
+     * Test: Cloning a repository creates a DB entry and filesystem directory.
      */
     @Test
-    @Order(1)
     void testCloneRepositoryIntegration() throws Exception {
-        String url = tempGitRepo.toUri().toString();
+        // Make a fresh copy of tempGitRepo for this test
+        Path repoCopy = Files.createTempDirectory("repo-copy-");
+        Git.cloneRepository()
+                .setURI(tempGitRepo.toUri().toString())
+                .setDirectory(repoCopy.toFile())
+                .call(); // just to simulate a real repo path
+
+        String url = repoCopy.toUri().toString();
 
         GitRepositoryEntity entity = service.getOrCloneRepository(url);
 
         assertNotNull(entity.getId(), "Entity ID should be generated and not null");
         assertEquals(url, entity.getUrl(), "Entity URL should match the cloned URL");
-        assertTrue(Files.exists(Path.of(entity.getLocalPath())), "Repository directory should exist on disk");
+        assertTrue(new File(entity.getLocalPath()).exists(), "Repository directory should exist on disk");
 
-        System.out.println("Cloned repository to: " + entity.getLocalPath());
+        deleteRecursively(new File(entity.getLocalPath()));
+        deleteRecursively(repoCopy.toFile());
     }
 
     /**
-     * Test: Reusing cached repository.
-     * <p>
-     * This test verifies that:
-     * 1. If a repository has already been cloned and is not expired,
-     *    getOrCloneRepository returns the same entity.
-     * 2. No new cloning occurs on the filesystem.
-     * 3. The database entity is reused.
-     * </p>
-     *
-     * @throws Exception if cloning or filesystem operations fail
+     * Test: Reusing cached repository does not clone again.
      */
     @Test
-    @Order(2)
     void testReuseCachedRepository() throws Exception {
-        String url = tempGitRepo.toUri().toString();
+        Path repoCopy = Files.createTempDirectory("repo-copy-");
+        Git.cloneRepository()
+                .setURI(tempGitRepo.toUri().toString())
+                .setDirectory(repoCopy.toFile())
+                .call();
+
+        String url = repoCopy.toUri().toString();
 
         GitRepositoryEntity first = service.getOrCloneRepository(url);
         GitRepositoryEntity second = service.getOrCloneRepository(url);
 
         assertEquals(first.getId(), second.getId(), "IDs should match for cached repository");
         assertEquals(first.getLocalPath(), second.getLocalPath(), "Local paths should match for cached repository");
+
+        deleteRecursively(new File(first.getLocalPath()));
+        deleteRecursively(repoCopy.toFile());
     }
 
     /**
-     * Test: Cleanup of expired repository.
-     * <p>
-     * This test verifies that:
-     * 1. A repository entity manually marked as expired is removed from the database.
-     * 2. The corresponding repository directory is deleted from the filesystem.
-     * </p>
-     *
-     * @throws Exception if cloning, database, or filesystem operations fail
+     * Test: Expired repository is removed from DB and filesystem.
      */
     @Test
-    @Order(3)
     void testExpiredRepositoryCleanup() throws Exception {
-        String url = tempGitRepo.toUri().toString();
+        Path repoCopy = Files.createTempDirectory("repo-copy-");
+        Git.cloneRepository()
+                .setURI(tempGitRepo.toUri().toString())
+                .setDirectory(repoCopy.toFile())
+                .call();
 
-        // Ensure repository exists
+        String url = repoCopy.toUri().toString();
+
         GitRepositoryEntity entity = service.getOrCloneRepository(url);
 
-        // Manually expire it
+        // Manually expire repository
         entity.setExpiresAt(LocalDateTime.now().minusDays(1));
         repo.save(entity);
 
         // Run cleanup
         service.cleanupExpiredRepositoriesOnce();
 
-        // Verify entity is removed from DB and directory deleted
         assertFalse(repo.findById(entity.getId()).isPresent(), "Expired repository should be removed from database");
         assertFalse(new File(entity.getLocalPath()).exists(), "Expired repository directory should be deleted");
+
+        deleteRecursively(repoCopy.toFile());
     }
 }
