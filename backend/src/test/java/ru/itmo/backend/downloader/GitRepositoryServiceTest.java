@@ -6,18 +6,18 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.context.ActiveProfiles;
 import ru.itmo.backend.entity.GitRepositoryEntity;
-import ru.itmo.backend.repo.GitRepositoryEntityRepository;
 import ru.itmo.backend.service.downloader.FileManager;
 import ru.itmo.backend.service.downloader.GitClient;
 import ru.itmo.backend.service.downloader.GitRepositoryService;
+import ru.itmo.backend.service.downloader.RepositoryAccessService;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -25,28 +25,27 @@ import static org.mockito.Mockito.*;
 /**
  * Unit tests for {@link GitRepositoryService}.
  *
- * All external interactions (Git, filesystem, database)
- * are mocked to ensure pure unit-test behavior.
+ * All external interactions (Git, filesystem, repository access) are mocked
+ * to ensure isolated unit tests.
  */
 @ActiveProfiles("h2")
 public class GitRepositoryServiceTest {
 
-    private GitRepositoryEntityRepository repo;
     private GitClient gitClient;
     private FileManager fileManager;
+    private RepositoryAccessService accessService;
 
     private GitRepositoryService service;
-
     private Path tempStorage;
 
     private final LocalDateTime FIXED_NOW = LocalDateTime.of(2024, 1, 1, 12, 0);
 
     /**
-     * Custom subclass to override time in tests.
+     * Custom subclass to override current time for deterministic testing.
      */
     private class TestableGitRepositoryService extends GitRepositoryService {
         public TestableGitRepositoryService() {
-            super(repo, gitClient, fileManager, tempStorage.toString(), 24);
+            super(gitClient, fileManager, accessService, tempStorage.toString(), 24);
         }
 
         @Override
@@ -57,26 +56,27 @@ public class GitRepositoryServiceTest {
 
     @BeforeEach
     void setup() throws IOException {
-        repo = mock(GitRepositoryEntityRepository.class);
         gitClient = mock(GitClient.class);
         fileManager = mock(FileManager.class);
+        accessService = mock(RepositoryAccessService.class);
 
         tempStorage = Files.createTempDirectory("git-repo-test-");
         service = new TestableGitRepositoryService();
     }
 
     /**
-     * Test: if cached repo exists and is not expired → return it, do not clone.
+     * Test case: When a cached repository exists on disk and is not expired,
+     * getOrCloneRepository returns it and does not perform cloning.
      */
     @Test
     void testGetOrCloneRepository_ReturnsCached_WhenNotExpired() throws Exception {
         GitRepositoryEntity entity = new GitRepositoryEntity();
-        entity.setId(1L);
         entity.setUrl("http://repo");
-        entity.setLocalPath(tempStorage.resolve("old").toString());
-        entity.setExpiresAt(FIXED_NOW.plusHours(1));
+        entity.setLocalPath(tempStorage.resolve("existing").toString());
 
-        when(repo.findByUrl("http://repo")).thenReturn(Optional.of(entity));
+        // RepositoryAccessService returns existing repository
+        when(accessService.accessRepositoryByUrl("http://repo"))
+                .thenReturn(Optional.of(entity));
 
         Files.createDirectories(Path.of(entity.getLocalPath()));
 
@@ -84,41 +84,33 @@ public class GitRepositoryServiceTest {
 
         assertSame(entity, result);
         verify(gitClient, never()).cloneRepo(any(), any());
-        verify(repo, never()).delete(any());
+        verify(fileManager, never()).deleteDirectory(any());
+        verify(accessService).accessRepositoryByUrl("http://repo");
     }
 
     /**
-     * Test: cached repo exists but is expired → delete directory, delete DB record,
-     * clone new one, save new entity.
+     * Test case: When cached repository does not exist on disk,
+     * getOrCloneRepository clones a new repository and calls refreshTTL.
      */
     @Test
-    void testGetOrCloneRepository_Clones_WhenExpired() throws Exception {
-        GitRepositoryEntity expired = new GitRepositoryEntity();
-        expired.setId(2L);
-        expired.setUrl("http://repo");
-        expired.setLocalPath(tempStorage.resolve("expired").toString());
-        expired.setExpiresAt(FIXED_NOW.minusHours(1)); // expired
+    void testGetOrCloneRepository_Clones_WhenMissing() throws Exception {
+        when(accessService.accessRepositoryByUrl("http://repo"))
+                .thenReturn(Optional.empty());
 
-        when(repo.findByUrl("http://repo")).thenReturn(Optional.of(expired));
-
-        Files.createDirectories(Path.of(expired.getLocalPath()));
-
-        // Capture saved entity
-        ArgumentCaptor<GitRepositoryEntity> captor = ArgumentCaptor.forClass(GitRepositoryEntity.class);
+        // Мокаем save, чтобы возвращал тот же объект
+        when(accessService.save(any(GitRepositoryEntity.class)))
+                .thenAnswer(i -> i.getArgument(0));
 
         GitRepositoryEntity result = service.getOrCloneRepository("http://repo");
 
-        // Verify deletion
-        verify(fileManager).deleteDirectory(new File(expired.getLocalPath()));
-        verify(repo).delete(expired);
-
-        // Verify cloning
+        // Verify cloning was invoked
         verify(gitClient).cloneRepo(eq("http://repo"), any(File.class));
 
-        // Verify saving new entity
-        verify(repo).save(captor.capture());
-        GitRepositoryEntity saved = captor.getValue();
+        // Проверяем, что save вызван с новым репозиторием
+        ArgumentCaptor<GitRepositoryEntity> captor = ArgumentCaptor.forClass(GitRepositoryEntity.class);
+        verify(accessService).save(captor.capture());
 
+        GitRepositoryEntity saved = captor.getValue();
         assertEquals("http://repo", saved.getUrl());
         assertEquals(FIXED_NOW, saved.getCreatedAt());
         assertEquals(FIXED_NOW.plusHours(24), saved.getExpiresAt());
@@ -127,11 +119,13 @@ public class GitRepositoryServiceTest {
     }
 
     /**
-     * Test: when cloning fails, the directory must be removed and exception rethrown.
+     * Test case: When cloning fails, getOrCloneRepository deletes the temporary directory
+     * and propagates the exception.
      */
     @Test
     void testGetOrCloneRepository_CloneFails_CleansUp() throws Exception {
-        when(repo.findByUrl("http://repo")).thenReturn(Optional.empty());
+        when(accessService.accessRepositoryByUrl("http://repo"))
+                .thenReturn(Optional.empty());
 
         doThrow(new GitAPIException("fail") {})
                 .when(gitClient)
@@ -141,33 +135,35 @@ public class GitRepositoryServiceTest {
                 service.getOrCloneRepository("http://repo")
         );
 
+        // Verify cleanup was performed
         verify(fileManager).deleteDirectory(any(File.class));
-        verify(repo, never()).save(any());
+        verify(accessService, never()).refreshTTL(any());
     }
 
     /**
-     * Test cleanupExpiredRepositoriesOnce: deletes expired entities.
+     * Test case: cleanupExpiredRepositoriesOnce deletes expired repositories from disk
+     * and calls refreshTTL for remaining ones.
      */
     @Test
-    void testCleanupExpiredRepositoriesOnce() {
+    void testCleanupExpiredRepositoriesOnce_DeletesExpired() throws IOException {
         GitRepositoryEntity expired1 = new GitRepositoryEntity();
-        expired1.setId(1L);
-        expired1.setLocalPath("/tmp/a");
-        expired1.setExpiresAt(FIXED_NOW.minusHours(5));
+        expired1.setLocalPath(tempStorage.resolve("expired1").toString());
+        expired1.setExpiresAt(FIXED_NOW.minusHours(1));
 
         GitRepositoryEntity expired2 = new GitRepositoryEntity();
-        expired2.setId(2L);
-        expired2.setLocalPath("/tmp/b");
-        expired2.setExpiresAt(FIXED_NOW.minusHours(10));
+        expired2.setLocalPath(tempStorage.resolve("expired2").toString());
+        expired2.setExpiresAt(FIXED_NOW.minusHours(2));
 
-        when(repo.findAll()).thenReturn(java.util.List.of(expired1, expired2));
+        when(accessService.findExpired(FIXED_NOW))
+                .thenReturn(List.of(expired1, expired2));
 
         service.cleanupExpiredRepositoriesOnce();
 
-        verify(fileManager).deleteDirectory(new File("/tmp/a"));
-        verify(fileManager).deleteDirectory(new File("/tmp/b"));
+        verify(fileManager).deleteDirectory(new File(expired1.getLocalPath()));
+        verify(fileManager).deleteDirectory(new File(expired2.getLocalPath()));
 
-        verify(repo).delete(expired1);
-        verify(repo).delete(expired2);
+        verify(accessService).delete(expired1);
+        verify(accessService).delete(expired2);
     }
+
 }

@@ -1,67 +1,104 @@
 package ru.itmo.backend.service.downloader;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.itmo.backend.entity.GitRepositoryEntity;
 import ru.itmo.backend.repo.GitRepositoryEntityRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * A service wrapper for accessing Git repositories.
- * Updates the TTL of a repository on every access.
- * Does not perform cloning; it only provides access to existing repositories.
+ * Service providing safe access to GitRepositoryEntity storage.
+ * All DB operations related to Git repositories must go through this service.
+ *
+ * Responsibilities:
+ *  - Find repository by URL or UUID
+ *  - Update TTL on access
+ *  - Provide list of expired repositories
+ *  - Save and delete metadata
  */
 @Service
 public class RepositoryAccessService {
 
-    private final GitRepositoryEntityRepository repositoryEntityRepository;
+    private final GitRepositoryEntityRepository repository;
     private final long expireHours;
 
     /**
      * Constructs a RepositoryAccessService.
      *
-     * @param repositoryEntityRepository the repository for GitRepositoryEntity
-     * @param expireHours                TTL in hours for cached repositories
+     * @param repository the repository interface for GitRepositoryEntity
+     * @param expireHours TTL in hours for cached repositories
      */
-    public RepositoryAccessService(GitRepositoryEntityRepository repositoryEntityRepository,
-                                   long expireHours) {
-        this.repositoryEntityRepository = repositoryEntityRepository;
+    public RepositoryAccessService(
+            GitRepositoryEntityRepository repository,
+            @Value("${repository.expire.hours}") long expireHours
+    ) {
+        this.repository = repository;
         this.expireHours = expireHours;
     }
 
     /**
-     * Retrieves an existing repository by its URL and refreshes its TTL.
+     * Retrieves a repository by its UUID. Refreshes TTL.
      *
-     * @param repoUrl the repository URL
-     * @return Optional containing the repository if it exists
+     * @param uuid the repository UUID
+     * @return repository entity
      */
-    public Optional<GitRepositoryEntity> accessRepositoryByUrl(String repoUrl) {
-        Optional<GitRepositoryEntity> repoOpt = repositoryEntityRepository.findByUrl(repoUrl);
-        repoOpt.ifPresent(this::refreshTTL);
-        return repoOpt;
+    public GitRepositoryEntity getById(Long uuid) {
+        GitRepositoryEntity entity = repository
+                .findById(uuid)
+                .orElseThrow(() -> new IllegalArgumentException("Repository not found: " + uuid));
+
+        refreshTTL(entity);
+        return entity;
     }
 
     /**
-     * Retrieves an existing repository by its UUID and refreshes its TTL.
-     *
-     * @param uuid the UUID of the repository
-     * @return Optional containing the repository if it exists
+     * Attempts to find repository by URL and refresh TTL.
      */
-    public Optional<GitRepositoryEntity> accessRepositoryByUuid(UUID uuid) {
-        Optional<GitRepositoryEntity> repoOpt = repositoryEntityRepository.findById(uuid.getMostSignificantBits());
-        repoOpt.ifPresent(this::refreshTTL);
-        return repoOpt;
+    public Optional<GitRepositoryEntity> accessRepositoryByUrl(String url) {
+        Optional<GitRepositoryEntity> entity = repository.findByUrl(url);
+        entity.ifPresent(this::refreshTTL);
+        return entity;
     }
 
     /**
-     * Refreshes the TTL of the given repository by extending its expiration.
-     *
-     * @param repo the Git repository entity
+     * Attempts to find repository by UUID and refresh TTL.
      */
-    public void refreshTTL(GitRepositoryEntity repo) {
-        repo.setExpiresAt(LocalDateTime.now().plusHours(expireHours));
-        repositoryEntityRepository.save(repo);
+    public Optional<GitRepositoryEntity> accessRepositoryByUuid(Long uuid) {
+        Optional<GitRepositoryEntity> entity = repository.findById(uuid);
+        entity.ifPresent(this::refreshTTL);
+        return entity;
+    }
+
+    /**
+     * Saves repository metadata.
+     */
+    public GitRepositoryEntity save(GitRepositoryEntity entity) {
+        return repository.save(entity);
+    }
+
+    /**
+     * Deletes repository metadata.
+     */
+    public void delete(GitRepositoryEntity entity) {
+        repository.delete(entity);
+    }
+
+    /**
+     * Finds expired repositories (TTL < now).
+     */
+    public List<GitRepositoryEntity> findExpired(LocalDateTime now) {
+        return repository.findExpired(now);
+    }
+
+    /**
+     * Extends TTL for given repository entity.
+     */
+    public void refreshTTL(GitRepositoryEntity entity) {
+        entity.setExpiresAt(LocalDateTime.now().plusHours(expireHours));
+        repository.save(entity);
     }
 }

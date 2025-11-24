@@ -19,14 +19,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for {@link GitRepositoryService}.
- * ---
- * The test uses:
- * - real JGit cloning
- * - real filesystem
- * - in-memory H2 database
- * - a temporary local git repository created before the test
- * ---
- * This verifies the complete end-to-end behavior without mocks.
+ * <p>
+ * These tests exercise the end-to-end functionality including:
+ * - real Git cloning via JGit,
+ * - writing and reading repository entities from the database,
+ * - filesystem operations (creating and deleting directories),
+ * - expiration and cleanup of cached repositories.
+ * </p>
+ * <p>
+ * The tests use:
+ * - H2 in-memory database (via active profile "h2"),
+ * - a temporary local Git repository created before all tests.
+ * </p>
  */
 @SpringBootTest
 @ActiveProfiles("h2")
@@ -45,7 +49,13 @@ class GitRepositoryServiceIT {
     private static Path tempGitRepo;
 
     /**
-     * Creates a real temporary git repository for integration tests.
+     * Sets up a temporary Git repository on the local filesystem before all tests.
+     * <p>
+     * This repository is initialized, a single file is added and committed.
+     * Tests will clone from this repository to verify end-to-end behavior.
+     * </p>
+     *
+     * @throws Exception if filesystem or Git operations fail
      */
     @BeforeAll
     static void createLocalGitRepo() throws Exception {
@@ -53,13 +63,12 @@ class GitRepositoryServiceIT {
 
         Git.init().setDirectory(tempGitRepo.toFile()).call();
 
-        // create a test file
+        // create a test Java file
         Files.writeString(tempGitRepo.resolve("TestFile.java"), "class A {}");
 
-        // commit file
+        // commit the file
         Git.open(tempGitRepo.toFile())
                 .add().addFilepattern(".").call();
-
         Git.open(tempGitRepo.toFile())
                 .commit().setMessage("initial commit").call();
 
@@ -67,7 +76,10 @@ class GitRepositoryServiceIT {
     }
 
     /**
-     * Cleans up filesystem after tests.
+     * Cleans up the temporary Git repository after all tests.
+     * Deletes all files and directories recursively.
+     *
+     * @throws Exception if filesystem deletion fails
      */
     @AfterAll
     static void cleanup() throws Exception {
@@ -77,8 +89,15 @@ class GitRepositoryServiceIT {
     }
 
     /**
-     * Test: service clones repository, writes entity to DB,
-     * and creates the directory on filesystem.
+     * Test: Cloning a repository.
+     * <p>
+     * This test verifies that:
+     * 1. The repository is cloned from the local Git URL.
+     * 2. A new repository entity is saved in the database.
+     * 3. The repository directory is created on the filesystem.
+     * </p>
+     *
+     * @throws Exception if cloning or filesystem operations fail
      */
     @Test
     @Order(1)
@@ -87,46 +106,64 @@ class GitRepositoryServiceIT {
 
         GitRepositoryEntity entity = service.getOrCloneRepository(url);
 
-        assertNotNull(entity.getId());
-        assertEquals(url, entity.getUrl());
-        assertTrue(Files.exists(Path.of(entity.getLocalPath())));
+        assertNotNull(entity.getId(), "Entity ID should be generated and not null");
+        assertEquals(url, entity.getUrl(), "Entity URL should match the cloned URL");
+        assertTrue(Files.exists(Path.of(entity.getLocalPath())), "Repository directory should exist on disk");
 
-        System.out.println("Cloned to: " + entity.getLocalPath());
+        System.out.println("Cloned repository to: " + entity.getLocalPath());
     }
 
     /**
-     * Test: cached repo exists and is NOT expired → reused.
+     * Test: Reusing cached repository.
+     * <p>
+     * This test verifies that:
+     * 1. If a repository has already been cloned and is not expired,
+     *    getOrCloneRepository returns the same entity.
+     * 2. No new cloning occurs on the filesystem.
+     * 3. The database entity is reused.
+     * </p>
+     *
+     * @throws Exception if cloning or filesystem operations fail
      */
     @Test
     @Order(2)
     void testReuseCachedRepository() throws Exception {
         String url = tempGitRepo.toUri().toString();
+
         GitRepositoryEntity first = service.getOrCloneRepository(url);
         GitRepositoryEntity second = service.getOrCloneRepository(url);
 
-        assertEquals(first.getId(), second.getId());
-        assertEquals(first.getLocalPath(), second.getLocalPath());
+        assertEquals(first.getId(), second.getId(), "IDs should match for cached repository");
+        assertEquals(first.getLocalPath(), second.getLocalPath(), "Local paths should match for cached repository");
     }
 
     /**
-     * Test: mark cached repo as expired → cleanup removes it.
+     * Test: Cleanup of expired repository.
+     * <p>
+     * This test verifies that:
+     * 1. A repository entity manually marked as expired is removed from the database.
+     * 2. The corresponding repository directory is deleted from the filesystem.
+     * </p>
+     *
+     * @throws Exception if cloning, database, or filesystem operations fail
      */
     @Test
     @Order(3)
     void testExpiredRepositoryCleanup() throws Exception {
         String url = tempGitRepo.toUri().toString();
 
-        // get entity
+        // Ensure repository exists
         GitRepositoryEntity entity = service.getOrCloneRepository(url);
 
-        // expire it manually
+        // Manually expire it
         entity.setExpiresAt(LocalDateTime.now().minusDays(1));
         repo.save(entity);
 
-        // cleanup
+        // Run cleanup
         service.cleanupExpiredRepositoriesOnce();
 
-        assertFalse(repo.findById(entity.getId()).isPresent());
-        assertFalse(new File(entity.getLocalPath()).exists());
+        // Verify entity is removed from DB and directory deleted
+        assertFalse(repo.findById(entity.getId()).isPresent(), "Expired repository should be removed from database");
+        assertFalse(new File(entity.getLocalPath()).exists(), "Expired repository directory should be deleted");
     }
 }
