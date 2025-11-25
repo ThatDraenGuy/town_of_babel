@@ -11,7 +11,6 @@ type TProps = Omit<ThreeElements['mesh'], 'position'> & {
 
 export const TreeMap: React.FC<TProps> = ({ position, tree, ...props }) => {
   const resolved = resolveTree(tree);
-  console.log(resolved);
   const geometry = [
     Math.sqrt(resolved.area),
     resolved.height,
@@ -22,8 +21,6 @@ export const TreeMap: React.FC<TProps> = ({ position, tree, ...props }) => {
       {...props}
       position={[position[0], position[1] + geometry[1] / 2, position[2]]}
     >
-      {/* <boxGeometry args={geometry} />
-      <meshBasicMaterial transparent opacity={0} /> */}
       <TreeNode
         position={[-geometry[0] / 2, -geometry[1] / 2, -geometry[2] / 2]}
         node={{
