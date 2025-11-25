@@ -25,7 +25,7 @@ public class CodeAnalysisController {
         this.projectAccessService = projectAccessService;
     }
 
-    // 1️⃣ Анализ всего проекта
+    // Анализ всего проекта
     @Operation(summary = "Analyze a project",
             description = "Performs static code analysis on the entire cloned project")
     @PostMapping("/project/{projectId}")
@@ -34,7 +34,7 @@ public class CodeAnalysisController {
         return codeAnalysisService.analyzeProject(new File(project.getLocalPath()));
     }
 
-    // 2️⃣ Анализ конкретного коммита
+    // Анализ конкретного коммита
     @Operation(summary = "Analyze a specific commit",
             description = "Performs static code analysis on the code at a given commit")
     @PostMapping("/project/{projectId}/commit/{commitSha}")
@@ -44,7 +44,7 @@ public class CodeAnalysisController {
         return codeAnalysisService.analyzeCommit(new File(project.getLocalPath()), commitSha);
     }
 
-    // 3️⃣ Анализ разницы между двумя коммитами
+    // Анализ разницы между двумя коммитами
     @Operation(summary = "Analyze diff between commits",
             description = "Performs analysis on the diff between two commits")
     @PostMapping("/project/{projectId}/diff")
