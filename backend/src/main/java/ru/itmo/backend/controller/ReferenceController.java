@@ -7,7 +7,7 @@ import ru.itmo.backend.service.reference.ReferenceService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/reference")
+@RequestMapping("/reference")
 public class ReferenceController {
 
     private final ReferenceService referenceService;
