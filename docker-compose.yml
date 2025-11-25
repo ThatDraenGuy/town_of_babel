@@ -1,13 +1,21 @@
 services:
+  frontend:
+    build: frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+    ports:
+      - "8000:8080"
+
   backend:
     build: backend
-    restart: always
-
+    restart: unless-stopped
     depends_on:
       - database
 
     ports:
-      - "8080:8080" # TODO: remove this eventually
+      - "8080:8080"
 
     command:
       - "--repository.storage.path=/var/lib/repos"
@@ -19,7 +27,7 @@ services:
 
   database:
     image: postgres:18-alpine
-    restart: always
+    restart: unless-stopped
 
     shm_size: 128mb
     environment:
@@ -35,9 +43,6 @@ services:
       retries: 3
 
 
-  frontend:
-    build: frontend
-    restart: always
 
 volumes:
   database:
