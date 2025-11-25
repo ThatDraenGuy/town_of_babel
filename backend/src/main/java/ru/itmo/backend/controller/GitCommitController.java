@@ -6,14 +6,11 @@ import ru.itmo.backend.dto.response.BranchDTO;
 import ru.itmo.backend.dto.response.CommitDTO;
 import ru.itmo.backend.dto.response.PageResponse;
 import ru.itmo.backend.entity.GitProjectEntity;
-import ru.itmo.backend.repo.GitProjectEntityRepository;
 import ru.itmo.backend.service.GitCommitService;
 import ru.itmo.backend.service.downloader.ProjectAccessService;
 
 /**
  * Controller exposing endpoints to list branches and commits with pagination.
- *
- * Base path: /api/projects
  */
 @RestController
 public class GitCommitController {

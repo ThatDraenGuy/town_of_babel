@@ -1,7 +1,6 @@
 package ru.itmo.backend.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import ru.itmo.backend.entity.GitProjectEntity;
@@ -25,16 +24,14 @@ public class CodeAnalysisController {
         this.projectAccessService = projectAccessService;
     }
 
-    // Анализ всего проекта
     @Operation(summary = "Analyze a project",
-            description = "Performs static code analysis on the entire cloned project")
+            description = "Performs static code analysis on the entire cloned project (last commit on main)")
     @PostMapping("/project/{projectId}")
     public Map<String, Object> analyzeProject(@PathVariable Long projectId) throws Exception {
         GitProjectEntity project = projectAccessService.getById(projectId);
         return codeAnalysisService.analyzeProject(new File(project.getLocalPath()));
     }
 
-    // Анализ конкретного коммита
     @Operation(summary = "Analyze a specific commit",
             description = "Performs static code analysis on the code at a given commit")
     @PostMapping("/project/{projectId}/commit/{commitSha}")
@@ -44,7 +41,6 @@ public class CodeAnalysisController {
         return codeAnalysisService.analyzeCommit(new File(project.getLocalPath()), commitSha);
     }
 
-    // Анализ разницы между двумя коммитами
     @Operation(summary = "Analyze diff between commits",
             description = "Performs analysis on the diff between two commits")
     @PostMapping("/project/{projectId}/diff")
