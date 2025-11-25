@@ -1,4 +1,4 @@
-package ru.itmo.backend.service;
+package ru.itmo.backend.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

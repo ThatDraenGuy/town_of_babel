@@ -3,20 +3,67 @@ info:
   title: OpenAPI definition
   version: v0
 servers:
-- url: http://localhost:8080
+- url: http://localhost:8080/api/v1
   description: Generated server url
+tags:
+- name: Repository Management
+  description: Endpoints for cloning and managing repositories
+- name: Code Analysis
+  description: Endpoints for analyzing project code
 paths:
-  /api/v1/repository/analyze:
+  /project/clone:
     post:
       tags:
-      - git-repository-controller
-      operationId: analyzeRepository
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AnalyzeRequest"
+      - Repository Management
+      summary: Clone or retrieve a repository
+      description: Clones the project if not cached or retrieves existing cached project
+      operationId: cloneRepository
+      parameters:
+      - name: request
+        in: query
         required: true
+        schema:
+          $ref: '#/components/schemas/ProjectUrlDTO'
+      responses:
+        "200":
+          description: Project retrieved/cloned successfully
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+        "400":
+          description: Invalid URL
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+        "500":
+          description: Server error
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /analysis/project/{projectId}:
+    post:
+      tags:
+      - Code Analysis
+      summary: Analyze a project
+      description: Performs static code analysis on the entire cloned project (last
+        commit on main)
+      operationId: analyzeProject
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
       responses:
         "200":
           description: OK
@@ -26,14 +73,114 @@ paths:
                 type: object
                 additionalProperties:
                   type: object
-  /api/v1/repository/commits:
+  /analysis/project/{projectId}/diff:
+    post:
+      tags:
+      - Code Analysis
+      summary: Analyze diff between commits
+      description: Performs analysis on the diff between two commits
+      operationId: analyzeDiff
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: baseCommit
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: targetCommit
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /analysis/project/{projectId}/commit/{commitSha}:
+    post:
+      tags:
+      - Code Analysis
+      summary: Analyze a specific commit
+      description: Performs static code analysis on the code at a given commit
+      operationId: analyzeCommit
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: commitSha
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /{projectId}/branches:
     get:
       tags:
-      - commit-controller
+      - git-commit-controller
+      operationId: getBranches
+      parameters:
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PageResponseBranchDTO'
+  /{projectId}/branches/{branch}/commits:
+    get:
+      tags:
+      - git-commit-controller
       operationId: getCommits
       parameters:
-      - name: url
-        in: query
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - name: branch
+        in: path
         required: true
         schema:
           type: string
@@ -44,61 +191,20 @@ paths:
           type: integer
           format: int32
           default: 0
-      - name: size
+      - name: pageSize
         in: query
         required: false
         schema:
           type: integer
           format: int32
-          default: 10
-      - name: metrics
-        in: query
-        required: false
-        schema:
-          type: array
-          items:
-            type: string
+          default: 20
       responses:
         "200":
           description: OK
           content:
             '*/*':
               schema:
-                type: object
-                additionalProperties:
-                  type: object
-  /api/v1/repository/commit/{hash}:
-    get:
-      tags:
-      - commit-controller
-      operationId: getCommit
-      parameters:
-      - name: hash
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: url
-        in: query
-        required: true
-        schema:
-          type: string
-      - name: metrics
-        in: query
-        required: false
-        schema:
-          type: array
-          items:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
+                $ref: '#/components/schemas/PageResponseCommitDTO'
   /api/v1/reference:
     get:
       tags:
@@ -112,29 +218,109 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/LanguageMetricsDTO"
+                  $ref: '#/components/schemas/LanguageMetricsDTO'
 components:
   schemas:
-    AnalyzeRequest:
+    ProjectUrlDTO:
       type: object
       properties:
         url:
           type: string
+          description: URL of the GitHub project
+          example: https://github.com/ThatDraenGuy/ifmo_comp_math_lab1.git
+      description: Request to analyze a GitHub project/repository
+    BranchDTO:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Short branch name
+          example: main
+        latestCommit:
+          type: string
+          description: SHA hash of the latest commit on the branch
+          example: 4f1d2ab99cd93b781e22c14fa3d45af33bbcd123
+      description: Represents a Git branch with its latest commit
+    PageResponseBranchDTO:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BranchDTO'
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int64
+    CommitDTO:
+      type: object
+      properties:
+        sha:
+          type: string
+          description: Commit SHA hash
+          example: a3f5b1c9d2e1f7abcd1234567890efabcd123456
+        message:
+          type: string
+          description: Commit message
+          example: Fix null pointer exception in parser
+        author:
+          type: string
+          description: Commit author name
+          example: Linus Torvalds
+        timestamp:
+          type: integer
+          description: Commit timestamp in milliseconds since epoch
+          format: int64
+          example: 1732459123000
+      description: Represents a Git commit with metadata
+    PageResponseCommitDTO:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommitDTO'
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int64
     LanguageMetricsDTO:
       type: object
       properties:
         language:
           type: string
+          description: Programming language name
+          example: Java
         metrics:
           type: array
+          description: List of available metrics for the language
           items:
-            $ref: "#/components/schemas/MetricDTO"
+            $ref: '#/components/schemas/MetricDTO'
+      description: Represents a set of metrics supported for a specific programming
+        language
     MetricDTO:
       type: object
       properties:
         id:
           type: string
+          description: Unique metric identifier
+          example: cyclomatic_complexity
         name:
           type: string
+          description: Human-readable metric name
+          example: Cyclomatic Complexity
         description:
           type: string
+          description: Detailed description of what the metric measures
+          example: Shows complexity of functions based on branching
+      description: Represents a single static analysis metric definition
