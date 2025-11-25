@@ -1,4 +1,4 @@
-package ru.itmo.backend.service;
+package ru.itmo.backend.service.reference;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;

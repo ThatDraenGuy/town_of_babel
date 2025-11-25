@@ -1,8 +1,8 @@
-package ru.itmo.backend.service;
+package ru.itmo.backend.service.reference;
 
 import org.springframework.stereotype.Service;
-import ru.itmo.backend.dto.LanguageMetricsDTO;
-import ru.itmo.backend.dto.MetricDTO;
+import ru.itmo.backend.dto.response.reference.LanguageMetricsDTO;
+import ru.itmo.backend.dto.response.reference.MetricDTO;
 
 import java.util.List;
 import java.util.stream.Collectors;
