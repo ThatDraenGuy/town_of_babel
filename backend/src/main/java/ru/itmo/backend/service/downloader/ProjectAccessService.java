@@ -48,7 +48,7 @@ public class ProjectAccessService {
     public GitProjectEntity getById(Long uuid) {
         GitProjectEntity entity = repository
                 .findById(uuid)
-                .orElseThrow(() -> new IllegalArgumentException("Repository not found: " + uuid));
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + uuid));
 
         refreshTTL(entity);
         return entity;

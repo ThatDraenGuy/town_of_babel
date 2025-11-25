@@ -8,6 +8,7 @@ import ru.itmo.backend.dto.response.PageResponse;
 import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.repo.GitProjectEntityRepository;
 import ru.itmo.backend.service.GitCommitService;
+import ru.itmo.backend.service.downloader.ProjectAccessService;
 
 /**
  * Controller exposing endpoints to list branches and commits with pagination.
@@ -17,13 +18,12 @@ import ru.itmo.backend.service.GitCommitService;
 @RestController
 public class GitCommitController {
 
-    private final GitProjectEntityRepository projectRepository;
     private final GitCommitService commitService;
+    private final ProjectAccessService projectAccessService;
 
-    public GitCommitController(GitProjectEntityRepository projectRepository,
-                               GitCommitService commitService) {
-        this.projectRepository = projectRepository;
+    public GitCommitController(GitCommitService commitService, ProjectAccessService projectAccessService) {
         this.commitService = commitService;
+        this.projectAccessService = projectAccessService;
     }
 
     /**
@@ -41,8 +41,7 @@ public class GitCommitController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) throws Exception {
-        GitProjectEntity project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        GitProjectEntity project = projectAccessService.getById(projectId);
 
         PageResponse<BranchDTO> response = commitService.listBranches(project, page, pageSize);
         return ResponseEntity.ok(response);
@@ -65,8 +64,7 @@ public class GitCommitController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) throws Exception {
-        GitProjectEntity repo = projectRepository.findById(projectId)
-                .orElseThrow(() -> new IllegalArgumentException("Repository not found: " + projectId));
+        GitProjectEntity repo = projectAccessService.getById(projectId);
         PageResponse<CommitDTO> response = commitService.listCommits(repo, branch, page, pageSize);
         return ResponseEntity.ok(response);
     }
