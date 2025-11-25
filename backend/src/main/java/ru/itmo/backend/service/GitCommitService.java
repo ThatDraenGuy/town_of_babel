@@ -8,9 +8,9 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import ru.itmo.backend.dto.response.BranchDTO;
-import ru.itmo.backend.dto.response.CommitDTO;
-import ru.itmo.backend.dto.response.PageResponse;
+import ru.itmo.backend.dto.response.commit.BranchDTO;
+import ru.itmo.backend.dto.response.commit.CommitDTO;
+import ru.itmo.backend.dto.response.commit.PageResponse;
 import ru.itmo.backend.entity.GitProjectEntity;
 
 import java.io.File;

@@ -1,4 +1,4 @@
-package ru.itmo.backend.dto.response;
+package ru.itmo.backend.dto.response.commit;
 
 import java.util.List;
 

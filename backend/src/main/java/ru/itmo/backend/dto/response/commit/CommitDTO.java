@@ -1,4 +1,4 @@
-package ru.itmo.backend.dto.response;
+package ru.itmo.backend.dto.response.commit;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

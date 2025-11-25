@@ -1,4 +1,4 @@
-package ru.itmo.backend.dto.request;
+package ru.itmo.backend.dto.request.gitproject;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

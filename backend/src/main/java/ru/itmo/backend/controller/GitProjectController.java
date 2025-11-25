@@ -1,15 +1,11 @@
 package ru.itmo.backend.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
-import ru.itmo.backend.dto.request.ProjectUrlDTO;
-import ru.itmo.backend.dto.response.ProjectResponseDTO;
-import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.dto.request.gitproject.ProjectUrlDTO;
+import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.service.downloader.GitProjectService;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/project")

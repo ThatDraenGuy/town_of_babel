@@ -2,9 +2,9 @@ package ru.itmo.backend.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.itmo.backend.dto.response.BranchDTO;
-import ru.itmo.backend.dto.response.CommitDTO;
-import ru.itmo.backend.dto.response.PageResponse;
+import ru.itmo.backend.dto.response.commit.BranchDTO;
+import ru.itmo.backend.dto.response.commit.CommitDTO;
+import ru.itmo.backend.dto.response.commit.PageResponse;
 import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.service.GitCommitService;
 import ru.itmo.backend.service.downloader.ProjectAccessService;

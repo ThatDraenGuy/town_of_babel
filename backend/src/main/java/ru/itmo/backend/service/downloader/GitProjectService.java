@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import ru.itmo.backend.dto.response.ProjectResponseDTO;
+import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.entity.GitProjectEntity;
 
 import java.io.File;
