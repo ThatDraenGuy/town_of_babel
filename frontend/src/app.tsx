@@ -5,12 +5,7 @@ import { OrbitControls as Controls } from '@react-three/drei';
 import { Canvas, useFrame, type ThreeElements } from '@react-three/fiber';
 import * as THREE from 'three';
 
-import { City } from './city/components/city';
-import {
-  GappedHouseBlockResolver,
-  SimpleBlockResolver,
-  SimpleSplitResolver,
-} from './city/helpers/house-placement';
+import { TreeMap } from './treemap/components/tree-map';
 
 const Box = (props: ThreeElements['mesh']) => {
   const meshRef = useRef<THREE.Mesh>(null!);
@@ -54,151 +49,33 @@ function App() {
       />
       <pointLight position={[-10, -10, -10]} decay={0} intensity={Math.PI} />
       <Plane position={[0, 0, 0]} />
-      <City
+      <TreeMap
         position={[0, 0, 0]}
-        data={SimpleBlockResolver(
-          GappedHouseBlockResolver(SimpleSplitResolver),
-        )({
+        tree={{
           name: 'rootPackage',
-          blocks: [
+          type: 'node',
+          children: [
+            { name: 'Main.java', type: 'leaf', area: 4, height: 3 },
             {
-              name: 'Main.java',
-              houses: [
-                {
-                  name: 'main',
-                  area: 2,
-                  height: 3,
-                },
-                {
-                  name: 'process',
-                  area: 1,
-                  height: 1,
-                },
+              name: 'package',
+              type: 'node',
+              children: [
+                { name: 'Main.java', type: 'leaf', area: 4, height: 1 },
+                { name: 'Main.java', type: 'leaf', area: 4, height: 2 },
+                { name: 'Main.java', type: 'leaf', area: 4, height: 3 },
+                { name: 'Main.java', type: 'leaf', area: 1, height: 4 },
+                { name: 'Main.java', type: 'leaf', area: 1, height: 5 },
               ],
-              type: 'houses',
             },
             {
-              name: 'TACVisitor',
-              houses: [
-                {
-                  name: 'defaultAction',
-                  area: 1,
-                  height: 1,
-                },
-                {
-                  name: 'handleBinary',
-                  area: 2,
-                  height: 2,
-                },
-                {
-                  name: 'visit',
-                  area: 10,
-                  height: 10,
-                },
+              name: 'package',
+              type: 'node',
+              children: [
+                { name: 'Main.java', type: 'leaf', area: 4, height: 2 },
               ],
-              type: 'houses',
             },
-            {
-              name: 'tac',
-              blocks: [
-                {
-                  name: 'ScopeContext',
-                  houses: [
-                    {
-                      name: 'enterScope',
-                      area: 2,
-                      height: 1,
-                    },
-                  ],
-                  type: 'houses',
-                },
-              ],
-              type: 'blocks',
-            },
-            // {
-            //   name: 'Main.java',
-            //   houses: [
-            //     {
-            //       name: 'test1',
-            //       area: 2,
-            //       height: 3,
-            //     },
-            //     {
-            //       name: 'test2',
-            //       area: 5,
-            //       height: 2,
-            //     },
-            //     {
-            //       name: 'test3',
-            //       area: 3,
-            //       height: 1,
-            //     },
-            //     {
-            //       name: 'test4',
-            //       area: 1,
-            //       height: 5,
-            //     },
-            //     {
-            //       name: 'test5',
-            //       area: 6,
-            //       height: 5,
-            //     },
-            //   ],
-            //   type: 'houses',
-            // },
-            // {
-            //   name: 'Main2.java',
-            //   houses: [
-            //     {
-            //       name: 'test1',
-            //       area: 2,
-            //       height: 3,
-            //     },
-            //   ],
-            //   type: 'houses',
-            // },
-            // {
-            //   name: 'Main3.java',
-            //   houses: [
-            //     {
-            //       name: 'test1',
-            //       area: 1,
-            //       height: 4,
-            //     },
-            //   ],
-            //   type: 'houses',
-            // },
-            // {
-            //   name: 'innerPackage',
-            //   blocks: [
-            //     {
-            //       name: 'Example.java',
-            //       houses: [
-            //         {
-            //           name: 'test1',
-            //           area: 20,
-            //           height: 3,
-            //         },
-            //       ],
-            //       type: 'houses',
-            //     },
-            //     {
-            //       name: 'Example2.java',
-            //       houses: [
-            //         {
-            //           name: 'test1',
-            //           area: 10,
-            //           height: 2,
-            //         },
-            //       ],
-            //       type: 'houses',
-            //     },
-            //   ],
-            //   type: 'blocks',
-            // },
           ],
-          type: 'blocks',
-        })}
+        }}
       />
       <Controls />
     </Canvas>
