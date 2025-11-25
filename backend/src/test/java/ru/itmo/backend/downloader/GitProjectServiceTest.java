@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.context.ActiveProfiles;
+import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
+import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.service.downloader.FileManager;
 import ru.itmo.backend.service.downloader.GitClient;
@@ -64,49 +66,40 @@ public class GitProjectServiceTest {
         service = new TestableGitProjectService();
     }
 
-    /**
-     * Test case: When a cached repository exists on disk and is not expired,
-     * getOrCloneRepository returns it and does not perform cloning.
-     */
     @Test
-    void testGetOrCloneProject_ReturnsCached_WhenNotExpired() throws Exception {
+    void testGetOrCloneProject_ReturnsCachedAndUpdates() throws Exception {
         GitProjectEntity entity = new GitProjectEntity();
         entity.setUrl("http://repo");
         entity.setLocalPath(tempStorage.resolve("existing").toString());
 
-        // RepositoryAccessService returns existing repository
         when(accessService.accessRepositoryByUrl("http://repo"))
                 .thenReturn(Optional.of(entity));
 
         Files.createDirectories(Path.of(entity.getLocalPath()));
 
-        GitProjectEntity result = service.getOrCloneProject("http://repo");
+        ProjectResponseDTO result = service.getOrCloneProject("http://repo");
 
-        assertSame(entity, result);
-        verify(gitClient, never()).cloneProject(any(), any());
+        assertEquals(entity.getId(), result.projectId());
+        assertEquals(UpdateStatus.UPDATED, result.updateStatus());
+
+        verify(gitClient).pullProject(new File(entity.getLocalPath()));
         verify(fileManager, never()).deleteDirectory(any());
-        verify(accessService).accessRepositoryByUrl("http://repo");
     }
 
-    /**
-     * Test case: When cached repository does not exist on disk,
-     * getOrCloneRepository clones a new repository and calls refreshTTL.
-     */
     @Test
     void testGetOrCloneProject_Clones_WhenMissing() throws Exception {
         when(accessService.accessRepositoryByUrl("http://repo"))
                 .thenReturn(Optional.empty());
 
-        // Мокаем save, чтобы возвращал тот же объект
         when(accessService.save(any(GitProjectEntity.class)))
                 .thenAnswer(i -> i.getArgument(0));
 
-        GitProjectEntity result = service.getOrCloneProject("http://repo");
+        ProjectResponseDTO result = service.getOrCloneProject("http://repo");
 
-        // Verify cloning was invoked
+        assertEquals(UpdateStatus.CLONED, result.updateStatus());
+
         verify(gitClient).cloneProject(eq("http://repo"), any(File.class));
 
-        // Проверяем, что save вызван с новым репозиторием
         ArgumentCaptor<GitProjectEntity> captor = ArgumentCaptor.forClass(GitProjectEntity.class);
         verify(accessService).save(captor.capture());
 
@@ -114,16 +107,10 @@ public class GitProjectServiceTest {
         assertEquals("http://repo", saved.getUrl());
         assertEquals(FIXED_NOW, saved.getCreatedAt());
         assertEquals(FIXED_NOW.plusHours(24), saved.getExpiresAt());
-
-        assertNotNull(result);
     }
 
-    /**
-     * Test case: When cloning fails, getOrCloneRepository deletes the temporary directory
-     * and propagates the exception.
-     */
     @Test
-    void testGetOrCloneRepository_CloneFails_CleansUp() throws Exception {
+    void testGetOrCloneProject_CloneFails_CleansUp() throws Exception {
         when(accessService.accessRepositoryByUrl("http://repo"))
                 .thenReturn(Optional.empty());
 
@@ -135,17 +122,11 @@ public class GitProjectServiceTest {
                 service.getOrCloneProject("http://repo")
         );
 
-        // Verify cleanup was performed
         verify(fileManager).deleteDirectory(any(File.class));
-        verify(accessService, never()).refreshTTL(any());
     }
 
-    /**
-     * Test case: cleanupExpiredRepositoriesOnce deletes expired repositories from disk
-     * and calls refreshTTL for remaining ones.
-     */
     @Test
-    void testCleanupExpiredRepositoriesOnce_DeletesExpired() throws IOException {
+    void testCleanupExpiredProjectOnce_DeletesExpired() throws IOException {
         GitProjectEntity expired1 = new GitProjectEntity();
         expired1.setLocalPath(tempStorage.resolve("expired1").toString());
         expired1.setExpiresAt(FIXED_NOW.minusHours(1));
@@ -165,5 +146,4 @@ public class GitProjectServiceTest {
         verify(accessService).delete(expired1);
         verify(accessService).delete(expired2);
     }
-
 }

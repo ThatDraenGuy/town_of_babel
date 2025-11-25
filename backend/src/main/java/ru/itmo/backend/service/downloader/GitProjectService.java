@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
+import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
 
 import java.io.File;
@@ -21,8 +22,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Service responsible for cloning Git projects and managing projects on disk.
- * All DB operations must be done exclusively via {@link ProjectAccessService}.
+ * Service responsible for cloning Git projects, updating them via git pull,
+ * and managing projects on disk. All DB operations are done exclusively
+ * via {@link ProjectAccessService}.
  */
 @Service
 public class GitProjectService {
@@ -37,14 +39,15 @@ public class GitProjectService {
 
     private static final Pattern GITHUB_REGEX =
             Pattern.compile("github\\.com[:/](.+?)/(.+?)(\\.git)?$");
+
     /**
-     * Constructs GitRepositoryService.
+     * Constructs GitProjectService.
      *
-     * @param gitClient               abstraction of Git operations
-     * @param fileManager             abstraction of filesystem operations
-     * @param projectAccessService    service that manages project metadata and TTL
-     * @param storagePath             base directory where projects are stored
-     * @param expireHours             TTL of cached projects in hours
+     * @param gitClient            abstraction of Git operations
+     * @param fileManager          abstraction of filesystem operations
+     * @param projectAccessService service that manages project metadata and TTL
+     * @param storagePath          base directory where projects are stored
+     * @param expireHours          TTL of cached projects in hours
      */
     public GitProjectService(
             GitClient gitClient,
@@ -76,52 +79,81 @@ public class GitProjectService {
     }
 
     /**
-     * Retrieves projects by URL or clones a fresh copy if:
-     *  - it does not exist
-     *  - or its directory is missing
-     *
-     * TTL refresh is handled by {@link ProjectAccessService}.
+     * Retrieves a project by URL, clones it if it does not exist, or updates it
+     * if it exists on disk. Returns a DTO with the project information and
+     * update status.
      *
      * @param repoUrl Git project URL
-     * @return metadata of the stored/updated repository
+     * @return DTO containing project metadata and update status
+     * @throws IOException      if filesystem operations fail
+     * @throws GitAPIException  if Git operations fail
      */
-    public ProjectResponseDTO cloneOrGetProject(String repoUrl) throws Exception {
-        GitProjectEntity entity = getOrCloneProject(repoUrl);
+    public ProjectResponseDTO getOrCloneProject(String repoUrl) throws IOException, GitAPIException {
+        Optional<GitProjectEntity> existingOpt = projectAccessService.accessRepositoryByUrl(repoUrl);
+        GitProjectEntity entity;
+        UpdateStatus updateStatus;
+
+        if (existingOpt.isPresent()) {
+            entity = existingOpt.get();
+            File dir = new File(entity.getLocalPath());
+
+            if (dir.exists()) {
+                log.info("Repository exists, attempting git pull: {}", entity.getLocalPath());
+                updateStatus = updateProject(entity);
+            } else {
+                log.warn("Repository directory missing, removing stale metadata: {}", entity.getId());
+                projectAccessService.delete(entity);
+                entity = cloneNewRepository(repoUrl);
+                updateStatus = UpdateStatus.CLONED;
+            }
+        } else {
+            entity = cloneNewRepository(repoUrl);
+            updateStatus = UpdateStatus.CLONED;
+        }
+
         Map<String, String> parsed = parseGithubUrl(repoUrl);
 
         return new ProjectResponseDTO(
                 entity.getId(),
                 parsed.get("owner"),
                 parsed.get("repo"),
-                entity.getLocalPath()
+                entity.getLocalPath(),
+                updateStatus
         );
     }
 
+    /**
+     * Performs git pull on an existing repository.
+     *
+     * @param entity Git project entity
+     * @return update status
+     */
+    private UpdateStatus updateProject(GitProjectEntity entity) {
+        File dir = new File(entity.getLocalPath());
 
-    public GitProjectEntity getOrCloneProject(String repoUrl) throws GitAPIException, IOException {
-
-        // Look up existing project and auto-refresh TTL
-        Optional<GitProjectEntity> existing = projectAccessService.accessRepositoryByUrl(repoUrl);
-
-        if (existing.isPresent()) {
-            GitProjectEntity project = existing.get();
-            File dir = new File(project.getLocalPath());
-
-            if (dir.exists()) {
-                log.info("Using cached repository: {}", project.getLocalPath());
-                return project;
-            }
-
-            // Directory is missing — clean up metadata
-            log.warn("Repository directory missing, removing stale metadata: {}", project.getId());
-            projectAccessService.delete(project);
+        try {
+            gitClient.pullProject(dir);
+            log.info("Repository updated via git pull: {}", entity.getLocalPath());
+            return UpdateStatus.UPDATED;
+        } catch (Exception e) {
+            log.error("Failed to update repository {}: {}", entity.getLocalPath(), e.getMessage());
+            return UpdateStatus.NOT_UPDATED;
         }
+    }
 
-        // Clone a fresh repository
+    /**
+     * Clones a new repository to disk and stores metadata in the database.
+     *
+     * @param repoUrl repository URL
+     * @return saved entity
+     * @throws IOException     if filesystem operations fail
+     * @throws GitAPIException if cloning fails
+     */
+    private GitProjectEntity cloneNewRepository(String repoUrl) throws IOException, GitAPIException {
         Path projectDir = storagePath.resolve(UUID.randomUUID().toString());
         Files.createDirectories(projectDir);
 
-        log.info("Cloning project: {}", repoUrl);
+        log.info("Cloning repository: {}", repoUrl);
 
         try {
             gitClient.cloneProject(repoUrl, projectDir.toFile());
@@ -131,7 +163,6 @@ public class GitProjectService {
             throw ex;
         }
 
-        // Save metadata
         GitProjectEntity entity = new GitProjectEntity();
         entity.setUrl(repoUrl);
         entity.setLocalPath(projectDir.toString());
@@ -140,10 +171,16 @@ public class GitProjectService {
 
         projectAccessService.save(entity);
 
-        log.info("Project cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
+        log.info("Repository cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
         return entity;
     }
 
+    /**
+     * Parses a GitHub URL into owner and repository name.
+     *
+     * @param url GitHub repository URL
+     * @return map with "owner" and "repo" keys
+     */
     public Map<String, String> parseGithubUrl(String url) {
         Matcher matcher = GITHUB_REGEX.matcher(url);
         if (matcher.find()) {
@@ -158,10 +195,8 @@ public class GitProjectService {
         );
     }
 
-
     /**
      * Deletes all projects whose TTL has expired.
-     * Uses {@link ProjectAccessService} for all DB operations.
      */
     public void cleanupExpiredProjectOnce() {
         var expired = projectAccessService.findExpired(now());

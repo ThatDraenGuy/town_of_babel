@@ -5,6 +5,8 @@ import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
+import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.repo.GitProjectEntityRepository;
 import ru.itmo.backend.service.downloader.GitProjectService;
@@ -18,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for {@link GitProjectService}.
- * Each test is fully isolated and does not depend on the others.
  */
 @SpringBootTest
 @ActiveProfiles("h2")
@@ -33,9 +34,6 @@ class GitProjectServiceIT {
 
     private Path tempGitRepo;
 
-    /**
-     * Create a bare temporary Git repository before all tests.
-     */
     @BeforeAll
     void setupGitRepo() throws Exception {
         tempGitRepo = Files.createTempDirectory("local-git-repo-");
@@ -49,17 +47,11 @@ class GitProjectServiceIT {
                 .commit().setMessage("initial commit").call();
     }
 
-    /**
-     * Cleans up the temporary Git repository after all tests.
-     */
     @AfterAll
     void cleanupGitRepo() throws Exception {
         deleteRecursively(tempGitRepo.toFile());
     }
 
-    /**
-     * Deletes a directory recursively.
-     */
     private void deleteRecursively(File file) {
         if (file.exists()) {
             File[] files = file.listFiles();
@@ -73,31 +65,29 @@ class GitProjectServiceIT {
     }
 
     /**
-     * Test: Cloning a repository creates a DB entry and filesystem directory.
+     * Test: Cloning a repository creates DB entry and filesystem directory.
      */
     @Test
     void testCloneRepositoryIntegration() throws Exception {
-        // Make a fresh copy of tempGitRepo for this test
         Path repoCopy = Files.createTempDirectory("repo-copy-");
         Git.cloneRepository()
                 .setURI(tempGitRepo.toUri().toString())
                 .setDirectory(repoCopy.toFile())
-                .call(); // just to simulate a real repo path
+                .call();
 
-        String url = repoCopy.toUri().toString();
+        String sourceUrl = repoCopy.toUri().toString();
+        ProjectResponseDTO dto = service.getOrCloneProject(sourceUrl);
 
-        GitProjectEntity entity = service.getOrCloneProject(url);
+        assertNotNull(dto.projectId(), "Entity ID should be generated");
+        assertTrue(new File(dto.path()).exists(), "Repository directory should exist on disk");
+        assertEquals(UpdateStatus.CLONED, dto.updateStatus(), "New repository should be marked as CLONED");
 
-        assertNotNull(entity.getId(), "Entity ID should be generated and not null");
-        assertEquals(url, entity.getUrl(), "Entity URL should match the cloned URL");
-        assertTrue(new File(entity.getLocalPath()).exists(), "Repository directory should exist on disk");
-
-        deleteRecursively(new File(entity.getLocalPath()));
+        deleteRecursively(new File(dto.path()));
         deleteRecursively(repoCopy.toFile());
     }
 
     /**
-     * Test: Reusing cached repository does not clone again.
+     * Test: Reusing cached repository does not clone again, performs git pull.
      */
     @Test
     void testReuseCachedRepository() throws Exception {
@@ -107,15 +97,16 @@ class GitProjectServiceIT {
                 .setDirectory(repoCopy.toFile())
                 .call();
 
-        String url = repoCopy.toUri().toString();
+        String sourceUrl = repoCopy.toUri().toString();
 
-        GitProjectEntity first = service.getOrCloneProject(url);
-        GitProjectEntity second = service.getOrCloneProject(url);
+        ProjectResponseDTO first = service.getOrCloneProject(sourceUrl);
+        ProjectResponseDTO second = service.getOrCloneProject(sourceUrl);
 
-        assertEquals(first.getId(), second.getId(), "IDs should match for cached repository");
-        assertEquals(first.getLocalPath(), second.getLocalPath(), "Local paths should match for cached repository");
+        assertEquals(first.projectId(), second.projectId(), "IDs should match for cached repository");
+        assertEquals(first.path(), second.path(), "Local paths should match for cached repository");
+        assertEquals(UpdateStatus.UPDATED, second.updateStatus(), "Second call should perform git pull");
 
-        deleteRecursively(new File(first.getLocalPath()));
+        deleteRecursively(new File(first.path()));
         deleteRecursively(repoCopy.toFile());
     }
 
@@ -130,9 +121,10 @@ class GitProjectServiceIT {
                 .setDirectory(repoCopy.toFile())
                 .call();
 
-        String url = repoCopy.toUri().toString();
+        String sourceUrl = repoCopy.toUri().toString();
+        ProjectResponseDTO dto = service.getOrCloneProject(sourceUrl);
 
-        GitProjectEntity entity = service.getOrCloneProject(url);
+        GitProjectEntity entity = repo.findById(dto.projectId()).orElseThrow();
 
         // Manually expire repository
         entity.setExpiresAt(LocalDateTime.now().minusDays(1));
@@ -141,7 +133,7 @@ class GitProjectServiceIT {
         // Run cleanup
         service.cleanupExpiredProjectOnce();
 
-        assertFalse(repo.findById(entity.getId()).isPresent(), "Expired repository should be removed from database");
+        assertFalse(repo.findById(entity.getId()).isPresent(), "Expired repository should be removed from DB");
         assertFalse(new File(entity.getLocalPath()).exists(), "Expired repository directory should be deleted");
 
         deleteRecursively(repoCopy.toFile());

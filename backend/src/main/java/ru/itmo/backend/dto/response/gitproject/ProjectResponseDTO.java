@@ -11,5 +11,7 @@ public record ProjectResponseDTO(
         @Schema(description = "GitHub repository name")
         String project,
         @Schema(description = "Local path where the project is stored")
-        String path
+        String path,
+        @Schema(description = "Status of repository")
+        UpdateStatus updateStatus
 ) {}

@@ -21,6 +21,6 @@ public class GitProjectController {
     @Operation(summary = "Clone or retrieve a repository")
     @PostMapping("/clone")
     public ProjectResponseDTO cloneRepository(@RequestBody ProjectUrlDTO request) throws Exception {
-        return gitProjectService.cloneOrGetProject(request.url());
+        return gitProjectService.getOrCloneProject(request.url());
     }
 }

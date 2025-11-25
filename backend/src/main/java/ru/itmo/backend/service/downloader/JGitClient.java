@@ -15,4 +15,13 @@ public class JGitClient implements GitClient {
                 .setDirectory(dir)
                 .call();
     }
+
+    @Override
+    public void pullProject(File dir) throws GitAPIException {
+        try (Git git = Git.open(dir)) {
+            git.pull().call();
+        } catch (Exception e) {
+            throw new GitAPIException("Failed to pull repository: " + dir, e) {};
+        }
+    }
 }
