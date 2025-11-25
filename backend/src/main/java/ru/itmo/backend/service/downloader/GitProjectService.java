@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import ru.itmo.backend.dto.response.ProjectResponseDTO;
 import ru.itmo.backend.entity.GitProjectEntity;
 
 import java.io.File;
@@ -84,6 +85,19 @@ public class GitProjectService {
      * @param repoUrl Git project URL
      * @return metadata of the stored/updated repository
      */
+    public ProjectResponseDTO cloneOrGetProject(String repoUrl) throws Exception {
+        GitProjectEntity entity = getOrCloneProject(repoUrl);
+        Map<String, String> parsed = parseGithubUrl(repoUrl);
+
+        return new ProjectResponseDTO(
+                entity.getId(),
+                parsed.get("owner"),
+                parsed.get("repo"),
+                entity.getLocalPath()
+        );
+    }
+
+
     public GitProjectEntity getOrCloneProject(String repoUrl) throws GitAPIException, IOException {
 
         // Look up existing project and auto-refresh TTL

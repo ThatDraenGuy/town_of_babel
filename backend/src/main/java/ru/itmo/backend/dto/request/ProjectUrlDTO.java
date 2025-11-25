@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record ProjectUrlDTO(
         @Schema(
                 description = "URL of the GitHub project",
-                example = "https://github.com/ThatDraenGuy/ifmo_comp_math_lab1.git"
+                example = "https://github.com/Olegshipu95/VT-Chat.git"
         )
         String url
 ) {}
