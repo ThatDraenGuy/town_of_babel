@@ -1,6 +1,15 @@
 services:
   backend:
     build: backend
+    command:
+      - "--repository.storage.path=/var/lib/repos"
+    volumes:
+      - repos:/var/lib/repos
+    ports:
+      - "8080:8080"
   frontend:
     build: frontend
+
+volumes:
+  repos:
 

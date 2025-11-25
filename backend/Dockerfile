@@ -13,6 +13,9 @@ RUN gradle --no-daemon ${GRADLE_TARGET}
 
 FROM amazoncorretto:21-alpine AS runner
 
+WORKDIR /app
+
 COPY --from=builder /app/build/libs/*.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
+EXPOSE 8080
