@@ -7,6 +7,7 @@ import type { TBox } from '../algorithm/squarify';
 
 type TProps = Omit<ThreeElements['mesh'], 'position'> & {
   position: [x: number, y: number, z: number];
+  name: string;
   inner: TBox;
   outer: TBox;
 };
@@ -14,6 +15,7 @@ type TProps = Omit<ThreeElements['mesh'], 'position'> & {
 export const Border: React.FC<TProps> = ({
   inner,
   outer,
+  name,
   position,
   ...props
 }) => {

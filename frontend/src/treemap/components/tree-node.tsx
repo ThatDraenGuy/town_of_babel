@@ -90,6 +90,7 @@ export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
       )}
       <Border
         position={[-geometry[0] / 2, -geometry[1] / 2, -geometry[2] / 2]}
+        name={node.name}
         inner={childrenBox}
         outer={fullBox}
       />
