@@ -5,11 +5,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Service responsible for code analysis.
@@ -29,16 +27,9 @@ public class CodeAnalysisService {
      * @param projectDir the root directory of the project
      * @return map of analysis metrics
      */
-    public Map<String, Object> analyzeProject(File projectDir) {
+    public String analyzeProject(File projectDir, List<String> languages) {
         log.info("Stub analysis of project at path: {}", projectDir.getAbsolutePath());
-
-        // Stub metrics
-        return Map.of(
-                "total_files", 50,
-                "java_lines", 320,
-                "methods_count", 12,
-                "classes_count", 8
-        );
+        return "Meow";
     }
 
 

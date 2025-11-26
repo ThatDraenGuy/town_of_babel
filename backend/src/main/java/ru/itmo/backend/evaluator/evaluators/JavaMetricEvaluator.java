@@ -18,7 +18,7 @@ public class JavaMetricEvaluator implements MetricEvaluator {
 
     private static final List<String> JAVA_EXTENSIONS = List.of(".java");
 
-    static String getPackageName(String filePath) throws MetricEvaluationException {
+    public static String getPackageName(String filePath) throws MetricEvaluationException {
         if (filePath == null || filePath.trim().isEmpty()) {
             throw new MetricEvaluationException("Non correct source file " + filePath);
         }

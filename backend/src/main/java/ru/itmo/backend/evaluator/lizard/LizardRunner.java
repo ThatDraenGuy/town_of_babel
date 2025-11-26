@@ -75,7 +75,7 @@ public class LizardRunner {
         }
     }
 
-    static Map<String, Map<String, String>> parseLizardOutput(Reader rawReader) throws IOException, MetricEvaluationException {
+    public static Map<String, Map<String, String>> parseLizardOutput(Reader rawReader) throws IOException, MetricEvaluationException {
         Map<String, Map<String, String>> result = new HashMap<>();
 
         try (CSVReader reader = new CSVReader(rawReader)) {
