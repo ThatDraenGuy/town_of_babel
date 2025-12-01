@@ -101,5 +101,7 @@ jobs:
           name: backend.jar
           path: "**/build/libs/*.jar"
 
+      - name: Install test dependencies
+        run: pip install --no-cache-dir -r requirements.txt
       - name: Test
         run: ./gradlew test
