@@ -18,11 +18,11 @@ RUN gradle --no-daemon ${GRADLE_TARGET}
 FROM amazoncorretto:21-alpine AS runner
 
 WORKDIR /app
-
-RUN apk update && apk add --no-cache python3 py3-pip
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:${PATH}"
-RUN pip install lizard
+COPY requirements.txt .
+RUN apk add --no-cache python3 py3-pip && \
+    pip install --no-cache-dir --break-system-packages -r requirements.txt && \
+    apk del py3-pip && \
+    apk cache purge
 
 COPY --from=builder /app/build/libs/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]
