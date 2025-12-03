@@ -12,6 +12,8 @@
   "dependencies": {
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^9.4.0",
+    "@react-three/uikit": "^1.0.60",
+    "@react-three/uikit-default": "^1.0.60",
     "lodash": "^4.17.21",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

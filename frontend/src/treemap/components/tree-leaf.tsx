@@ -1,5 +1,4 @@
 import type { ThreeElements } from '@react-three/fiber';
-import { Color } from 'three';
 
 import type { TPlacedTreeLeaf } from '../algorithm/tree';
 
@@ -24,7 +23,7 @@ export const TreeLeaf: React.FC<TProps> = ({ position, leaf, ...props }) => {
       ]}
     >
       <boxGeometry args={geometry} />
-      <meshStandardMaterial color={Color.NAMES.green} />
+      <meshStandardMaterial color={leaf.color} />
     </mesh>
   );
 };

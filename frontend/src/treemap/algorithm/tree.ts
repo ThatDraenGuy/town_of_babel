@@ -1,9 +1,11 @@
+import type { Color } from '@react-three/fiber';
 import _ from 'lodash';
 
 export interface TTreeLeaf {
   name: string;
   area: number;
   height: number;
+  color: Color;
   type: 'leaf';
 }
 

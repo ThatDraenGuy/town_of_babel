@@ -18,8 +18,6 @@ type TProps = Omit<ThreeElements['mesh'], 'position'> & {
   node: TPlacedTreeNode;
 };
 
-// const PADDING = 0.1;
-
 export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
   const padding =
     (node.dimensions[0] +
@@ -74,7 +72,7 @@ export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
       ]}
     >
       <boxGeometry args={geometry} />
-      <meshBasicMaterial wireframe={true} />
+      <meshBasicMaterial wireframe={true} transparent opacity={0} />
       {_.map(placed, child =>
         isLeaf(child) ? (
           <TreeLeaf
