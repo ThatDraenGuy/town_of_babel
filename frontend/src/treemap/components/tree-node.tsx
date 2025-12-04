@@ -1,3 +1,4 @@
+import { Html } from '@react-three/drei';
 import type { ThreeElements } from '@react-three/fiber';
 import _ from 'lodash';
 
@@ -17,8 +18,6 @@ type TProps = Omit<ThreeElements['mesh'], 'position'> & {
   position: [x: number, y: number, z: number];
   node: TPlacedTreeNode;
 };
-
-// const PADDING = 0.1;
 
 export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
   const padding =
@@ -74,7 +73,7 @@ export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
       ]}
     >
       <boxGeometry args={geometry} />
-      <meshBasicMaterial wireframe={true} />
+      <meshBasicMaterial wireframe={true} transparent opacity={0} />
       {_.map(placed, child =>
         isLeaf(child) ? (
           <TreeLeaf
@@ -94,6 +93,9 @@ export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
         inner={childrenBox}
         outer={fullBox}
       />
+      <Html center position={[0, -geometry[1] / 2 + 0.2, -geometry[2] / 2]}>
+        <span className="label">{node.name}</span>
+      </Html>
     </mesh>
   );
 };
