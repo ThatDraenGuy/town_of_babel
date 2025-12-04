@@ -1,3 +1,4 @@
+import { Html } from '@react-three/drei';
 import type { ThreeElements } from '@react-three/fiber';
 
 import type { TPlacedTreeLeaf } from '../algorithm/tree';
@@ -24,6 +25,9 @@ export const TreeLeaf: React.FC<TProps> = ({ position, leaf, ...props }) => {
     >
       <boxGeometry args={geometry} />
       <meshStandardMaterial color={leaf.color} />
+      <Html center position={[0, geometry[1] / 2 + 0.5, 0]}>
+        <span className="label">{leaf.name}</span>
+      </Html>
     </mesh>
   );
 };

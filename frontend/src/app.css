@@ -13,6 +13,7 @@ html, body, #root {
 
 .label {
   background-color: white;
+  color: black;
   border: 1px solid #888888;
   padding: 5px;
   border-radius: 3px;

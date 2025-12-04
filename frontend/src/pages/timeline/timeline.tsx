@@ -40,15 +40,21 @@ const commits: TResolvedCommitData[] = [
       author: 'ThatDraenGuy',
     },
     tree: {
-      name: 'rootPackage',
+      name: 'ru.draen.test',
       type: 'node',
       children: [
         {
           name: 'Main.java',
-          type: 'leaf',
-          area: 1,
-          height: 1,
-          color: Color.NAMES.green,
+          type: 'node',
+          children: [
+            {
+              name: 'main',
+              type: 'leaf',
+              area: 1,
+              height: 1,
+              color: Color.NAMES.green,
+            },
+          ],
         },
       ],
     },
@@ -61,22 +67,22 @@ const commits: TResolvedCommitData[] = [
       author: 'ThatDraenGuy',
     },
     tree: {
-      name: 'rootPackage',
+      name: 'ru.draen.test',
       type: 'node',
       children: [
         {
           name: 'Main.java',
-          type: 'leaf',
-          area: 2,
-          height: 1,
-          color: Color.NAMES.yellow,
-        },
-        {
-          name: 'package',
           type: 'node',
           children: [
             {
-              name: 'Main.java',
+              name: 'main',
+              type: 'leaf',
+              area: 2,
+              height: 1,
+              color: Color.NAMES.yellow,
+            },
+            {
+              name: 'processData',
               type: 'leaf',
               area: 4,
               height: 2,
@@ -95,50 +101,63 @@ const commits: TResolvedCommitData[] = [
       author: 'ThatDraenGuy',
     },
     tree: {
-      name: 'rootPackage',
+      name: 'ru.draen.test',
       type: 'node',
       children: [
         {
           name: 'Main.java',
-          type: 'leaf',
-          area: 4,
-          height: 3,
-          color: Color.NAMES.green,
-        },
-        {
-          name: 'package',
           type: 'node',
           children: [
             {
-              name: 'Main.java',
+              name: 'main',
+              type: 'leaf',
+              area: 2,
+              height: 1,
+              color: Color.NAMES.yellow,
+            },
+            {
+              name: 'processData',
+              type: 'leaf',
+              area: 4,
+              height: 2,
+              color: Color.NAMES.green,
+            },
+          ],
+        },
+        {
+          name: 'Processor.java',
+          type: 'node',
+          children: [
+            {
+              name: 'read',
               type: 'leaf',
               area: 4,
               height: 1,
               color: Color.NAMES.red,
             },
             {
-              name: 'Main.java',
+              name: 'close',
               type: 'leaf',
               area: 4,
               height: 2,
               color: Color.NAMES.green,
             },
             {
-              name: 'Main.java',
+              name: 'write',
               type: 'leaf',
               area: 4,
               height: 3,
               color: Color.NAMES.yellow,
             },
             {
-              name: 'Main.java',
+              name: 'append',
               type: 'leaf',
               area: 1,
               height: 4,
               color: Color.NAMES.green,
             },
             {
-              name: 'Main.java',
+              name: 'flush',
               type: 'leaf',
               area: 1,
               height: 5,
@@ -147,11 +166,11 @@ const commits: TResolvedCommitData[] = [
           ],
         },
         {
-          name: 'package',
+          name: 'Utils.java',
           type: 'node',
           children: [
             {
-              name: 'Main.java',
+              name: 'capitalizeLetters',
               type: 'leaf',
               area: 4,
               height: 2,

@@ -1,3 +1,4 @@
+import { Html } from '@react-three/drei';
 import type { ThreeElements } from '@react-three/fiber';
 import _ from 'lodash';
 
@@ -92,6 +93,9 @@ export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
         inner={childrenBox}
         outer={fullBox}
       />
+      <Html center position={[0, -geometry[1] / 2 + 0.2, -geometry[2] / 2]}>
+        <span className="label">{node.name}</span>
+      </Html>
     </mesh>
   );
 };
