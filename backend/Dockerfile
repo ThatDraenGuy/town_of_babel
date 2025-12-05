@@ -9,12 +9,15 @@ ENV GRADLE_TARGET=bootJar
 RUN gradle --no-daemon ${GRADLE_TARGET} || true
 
 COPY . .
+#TODO: make optional
 RUN gradle --no-daemon ${GRADLE_TARGET}
+
+
+
 
 FROM amazoncorretto:21-alpine AS runner
 
 WORKDIR /app
-
 COPY requirements.txt .
 RUN apk add --no-cache python3 py3-pip && \
     pip install --no-cache-dir --break-system-packages -r requirements.txt && \

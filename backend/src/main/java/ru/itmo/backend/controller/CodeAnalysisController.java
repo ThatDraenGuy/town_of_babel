@@ -8,6 +8,7 @@ import ru.itmo.backend.service.analysis.CodeAnalysisService;
 import ru.itmo.backend.service.downloader.ProjectAccessService;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -27,9 +28,9 @@ public class CodeAnalysisController {
     @Operation(summary = "Analyze a project",
             description = "Performs static code analysis on the entire cloned project (last commit on main)")
     @PostMapping("/project/{projectId}")
-    public Map<String, Object> analyzeProject(@PathVariable Long projectId) throws Exception {
+    public String analyzeProject(@PathVariable Long projectId) throws Exception {
         GitProjectEntity project = projectAccessService.getById(projectId);
-        return codeAnalysisService.analyzeProject(new File(project.getLocalPath()));
+        return codeAnalysisService.analyzeProject(new File(project.getLocalPath()), List.of("java"));
     }
 
     @Operation(summary = "Analyze a specific commit",
