@@ -16,6 +16,9 @@ public class GitProjectEntity {
     private String url;
 
     @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
     private String localPath;
 
     private LocalDateTime createdAt;
@@ -37,10 +40,15 @@ public class GitProjectEntity {
     public void setId(Long id) { this.id = id; }
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }
+
     public String getLocalPath() { return localPath; }
     public void setLocalPath(String localPath) { this.localPath = localPath; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+
+    public String getName() { return name; }
+
+    public void setName(String name) { this.name = name; }
 }
