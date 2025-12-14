@@ -1,0 +1,44 @@
+
+[
+  {
+    "url": "/api/v1/languages",
+    "body": {
+      "items": [
+        {
+          "languageId": 1,
+          "languageCode": "java",
+          "languageName": "Java"
+        },
+        {
+          "languageId": 2,
+          "languageCode": "cpp",
+          "languageName": "C++"
+        },
+        {
+          "languageId": 3,
+          "languageCode": "csharp",
+          "languageName": "C#"
+        }
+      ]
+    } 
+  },
+  {
+    "url": "/api/v1/languages/java/metrics",
+    "body": {
+      "items": [
+        {
+          "metricCode": "loc",
+          "metricName": "Lines of Code",
+          "metricDescription": "Code line number",
+          "metricType": "NUMERIC"
+        },
+        {
+          "metricCode": "docs",
+          "metricName": "Documentation",
+          "metricDescription": "Method documentation",
+          "metricType": "COLOR"
+        }
+      ]
+    }
+  }
+]

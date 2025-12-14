@@ -11,6 +11,7 @@ import {
 import _ from 'lodash';
 import { Color } from 'three';
 
+import { babelApi } from '../../api/babelApi';
 import { CommitCard } from '../../components/commit-card/commit-card';
 import { PaginationPicker } from '../../components/pagination-picker/pagination-picker';
 import type { TTreeNode } from '../../treemap/algorithm/tree';
@@ -183,7 +184,8 @@ const commits: TResolvedCommitData[] = [
   },
 ];
 
-export const Timeline: React.FC = () => {
+export const TimelinePage: React.FC = () => {
+  const { data } = babelApi.useGetLanguagesQuery();
   const [page, setPage] = useState(0);
   return (
     <Canvas>

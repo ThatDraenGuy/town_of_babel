@@ -1,0 +1,25 @@
+[
+    {
+        "url": "/api/v1/projects/clone",
+        "method": "POST",
+        "body": {
+            "projectId": 1,
+            "owner": "ThatDraenGuy",
+            "project": "Town of Babel",
+            "path": "repos/town_of_babel",
+            "languageCode": "java",
+            "updateStatus": "CLONED"
+        }
+    },
+    {
+        "url": "/api/v1/projects/1/branches",
+        "body": {
+            "items": [
+                {
+                    "branchName": "master",
+                    "latestCommit": "4f1d2ab99cd93b781e22c14fa3d45af33bbcd123"
+                }
+            ]
+        }
+    }
+]
