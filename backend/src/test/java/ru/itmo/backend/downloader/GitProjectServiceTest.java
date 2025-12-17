@@ -49,7 +49,7 @@ public class GitProjectServiceTest {
      */
     private class TestableGitProjectService extends GitProjectService {
         public TestableGitProjectService() {
-            super(gitClient, fileManager, accessService, metricsService, tempStorage.toString(), 24);
+            super(gitClient, fileManager, accessService, metricsService, tempStorage.toString(), 24, 1024);
         }
 
         @Override

@@ -6,6 +6,7 @@ import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.api.errors.TransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.itmo.backend.exception.*;
 
@@ -18,6 +19,23 @@ import java.util.concurrent.TimeoutException;
 public class JGitClient implements GitClient {
 
     private static final Logger log = LoggerFactory.getLogger(JGitClient.class);
+    
+    private final int operationTimeoutSeconds;
+    private final int connectionTimeoutSeconds;
+    
+    public JGitClient(
+            @Value("${git.operation.timeout.seconds:300}") int operationTimeoutSeconds,
+            @Value("${git.connection.timeout.seconds:30}") int connectionTimeoutSeconds
+    ) {
+        this.operationTimeoutSeconds = operationTimeoutSeconds;
+        this.connectionTimeoutSeconds = connectionTimeoutSeconds;
+        
+        // Set system properties for JGit timeouts
+        System.setProperty("org.eclipse.jgit.transport.http.connectionTimeout", 
+                String.valueOf(connectionTimeoutSeconds * 1000));
+        System.setProperty("org.eclipse.jgit.transport.http.readTimeout", 
+                String.valueOf(operationTimeoutSeconds * 1000));
+    }
 
     @Override
     public void cloneProject(String url, File dir) throws GitAPIException {
@@ -25,9 +43,10 @@ public class JGitClient implements GitClient {
             Git.cloneRepository()
                     .setURI(url)
                     .setDirectory(dir)
+                    .setTimeout(operationTimeoutSeconds)
                     .call();
         } catch (GitAPIException e) {
-            log.error("Failed to clone repository {} to {}", url, dir, e);
+            log.error("Failed to clone repository {} to {} (timeout: {}s)", url, dir, operationTimeoutSeconds, e);
             throw e;
         }
     }
@@ -63,7 +82,9 @@ public class JGitClient implements GitClient {
             
             // Try to fetch to check if remote exists
             try {
-                git.fetch().call();
+                git.fetch()
+                        .setTimeout(operationTimeoutSeconds)
+                        .call();
             } catch (TransportException fetchEx) {
                 String fetchMessage = fetchEx.getMessage();
                 if (fetchMessage != null && (
@@ -78,7 +99,9 @@ public class JGitClient implements GitClient {
                 // If fetch fails for other reasons, continue with pull
             }
             
-            git.pull().call();
+            git.pull()
+                    .setTimeout(operationTimeoutSeconds)
+                    .call();
         } catch (RepositoryNotFoundException e) {
             String message = "Repository not found or has been deleted: " + dir;
             log.warn(message, e);

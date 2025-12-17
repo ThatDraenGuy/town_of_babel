@@ -63,17 +63,30 @@ public class GitProjectService {
             ProjectAccessService projectAccessService,
             MetricsService metricsService,
             @Value("${repository.storage.path}") String storagePath,
-            @Value("${repository.expire.hours}") long expireHours
+            @Value("${repository.expire.hours}") long expireHours,
+            @Value("${repository.min-free-space-mb:1024}") long minFreeSpaceMb
     ) {
         this.gitClient = gitClient;
         this.fileManager = fileManager;
         this.projectAccessService = projectAccessService;
         this.metricsService = metricsService;
-        this.storagePath = Path.of(storagePath);
+        this.storagePath = Path.of(storagePath).toAbsolutePath().normalize();
         this.expireHours = expireHours;
 
         try {
             Files.createDirectories(this.storagePath);
+            
+            // Check available disk space
+            long freeSpaceBytes = Files.getFileStore(this.storagePath).getUsableSpace();
+            long minFreeSpaceBytes = minFreeSpaceMb * 1024 * 1024;
+            
+            if (freeSpaceBytes < minFreeSpaceBytes) {
+                log.warn("Low disk space in storage directory: {} MB available (minimum: {} MB)", 
+                        freeSpaceBytes / (1024 * 1024), minFreeSpaceMb);
+            } else {
+                log.info("Storage directory initialized: {} (free space: {} MB)", 
+                        this.storagePath, freeSpaceBytes / (1024 * 1024));
+            }
         } catch (IOException e) {
             log.error("Unable to create storage directory {}", storagePath, e);
             throw new IllegalStateException("Failed to initialize storage directory", e);
