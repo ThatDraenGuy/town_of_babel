@@ -6,10 +6,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import ru.itmo.backend.config.metrics.MetricsService;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.exception.*;
+import io.micrometer.core.instrument.Timer;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +40,7 @@ public class GitProjectService {
     private final GitClient gitClient;
     private final FileManager fileManager;
     private final ProjectAccessService projectAccessService;
+    private final MetricsService metricsService;
     private final Path storagePath;
     private final long expireHours;
     private final ConcurrentMap<String, ReentrantLock> repoLocks = new ConcurrentHashMap<>();
@@ -58,12 +61,14 @@ public class GitProjectService {
             GitClient gitClient,
             FileManager fileManager,
             ProjectAccessService projectAccessService,
+            MetricsService metricsService,
             @Value("${repository.storage.path}") String storagePath,
             @Value("${repository.expire.hours}") long expireHours
     ) {
         this.gitClient = gitClient;
         this.fileManager = fileManager;
         this.projectAccessService = projectAccessService;
+        this.metricsService = metricsService;
         this.storagePath = Path.of(storagePath);
         this.expireHours = expireHours;
 
@@ -141,10 +146,13 @@ public class GitProjectService {
      */
     private UpdateStatus updateProject(GitProjectEntity entity) {
         File dir = new File(entity.getLocalPath());
+        Timer.Sample sample = metricsService.startGitPullTimer();
+        boolean success = false;
 
         try {
             gitClient.pullProject(dir);
             log.info("Repository updated via git pull: {}", entity.getLocalPath());
+            success = true;
             return UpdateStatus.UPDATED;
         } catch (GitRepositoryNotFoundException e) {
             log.warn("Repository not found during pull (may have been deleted): {} - {}", 
@@ -171,6 +179,8 @@ public class GitProjectService {
             log.error("Unexpected error during git pull for repository {}: {}", 
                      entity.getLocalPath(), e.getMessage(), e);
             return UpdateStatus.NOT_UPDATED;
+        } finally {
+            metricsService.recordGitPullDuration(sample, success);
         }
     }
 
@@ -187,16 +197,21 @@ public class GitProjectService {
         Path projectDir = storagePath.resolve(UUID.randomUUID().toString());
         Files.createDirectories(projectDir);
         boolean directoryCreated = true;
+        Timer.Sample sample = metricsService.startCloneTimer();
+        boolean success = false;
 
         log.info("Cloning repository: {}", repoUrl);
 
         try {
             gitClient.cloneProject(repoUrl, projectDir.toFile());
+            success = true;
         } catch (Exception ex) {
             log.error("Clone failed for {} — cleaning up directory {}", repoUrl, projectDir, ex);
             fileManager.deleteDirectory(projectDir.toFile());
             directoryCreated = false;
             throw ex;
+        } finally {
+            metricsService.recordCloneDuration(sample, success);
         }
 
         GitProjectEntity entity = new GitProjectEntity();

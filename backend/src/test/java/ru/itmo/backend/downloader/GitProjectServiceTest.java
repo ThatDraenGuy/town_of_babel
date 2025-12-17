@@ -8,6 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.config.metrics.MetricsService;
 import ru.itmo.backend.service.downloader.FileManager;
 import ru.itmo.backend.service.downloader.GitClient;
 import ru.itmo.backend.service.downloader.GitProjectService;
@@ -36,6 +37,7 @@ public class GitProjectServiceTest {
     private GitClient gitClient;
     private FileManager fileManager;
     private ProjectAccessService accessService;
+    private MetricsService metricsService;
 
     private GitProjectService service;
     private Path tempStorage;
@@ -47,7 +49,7 @@ public class GitProjectServiceTest {
      */
     private class TestableGitProjectService extends GitProjectService {
         public TestableGitProjectService() {
-            super(gitClient, fileManager, accessService, tempStorage.toString(), 24);
+            super(gitClient, fileManager, accessService, metricsService, tempStorage.toString(), 24);
         }
 
         @Override
@@ -61,6 +63,7 @@ public class GitProjectServiceTest {
         gitClient = mock(GitClient.class);
         fileManager = mock(FileManager.class);
         accessService = mock(ProjectAccessService.class);
+        metricsService = mock(MetricsService.class);
 
         tempStorage = Files.createTempDirectory("git-repo-test-");
         service = new TestableGitProjectService();
