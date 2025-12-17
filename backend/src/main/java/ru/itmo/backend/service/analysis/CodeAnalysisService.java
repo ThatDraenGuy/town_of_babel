@@ -1,10 +1,8 @@
 package ru.itmo.backend.service.analysis;
 
-import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import ru.itmo.backend.config.metrics.MetricsService;
 
 import java.io.File;
 import java.util.Map;
@@ -21,11 +19,6 @@ public class CodeAnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(CodeAnalysisService.class);
     private final Random random = new Random();
-    private final MetricsService metricsService;
-
-    public CodeAnalysisService(MetricsService metricsService) {
-        this.metricsService = metricsService;
-    }
 
     /**
      * Analyzes the code of the given project directory at the current HEAD.
@@ -34,23 +27,15 @@ public class CodeAnalysisService {
      * @return map of analysis metrics
      */
     public Map<String, Object> analyzeProject(File projectDir) {
-        Timer.Sample sample = metricsService.startAnalysisTimer();
-        boolean success = false;
-        try {
-            log.info("Stub analysis of project at path: {}", projectDir.getAbsolutePath());
+        log.info("Stub analysis of project at path: {}", projectDir.getAbsolutePath());
 
-            // Stub metrics
-            Map<String, Object> result = Map.of(
-                    "total_files", 50,
-                    "java_lines", 320,
-                    "methods_count", 12,
-                    "classes_count", 8
-            );
-            success = true;
-            return result;
-        } finally {
-            metricsService.recordAnalysisDuration(sample, success);
-        }
+        // Stub metrics
+        return Map.of(
+                "total_files", 50,
+                "java_lines", 320,
+                "methods_count", 12,
+                "classes_count", 8
+        );
     }
 
 
@@ -112,23 +97,15 @@ public class CodeAnalysisService {
      * @return map of analysis metrics
      */
     public Map<String, Object> analyzeCommit(File projectDir, String commitSha) {
-        Timer.Sample sample = metricsService.startAnalysisTimer();
-        boolean success = false;
-        try {
-            log.info("Stub analysis of commit '{}' in project at path: {}", commitSha, projectDir.getAbsolutePath());
+        log.info("Stub analysis of commit '{}' in project at path: {}", commitSha, projectDir.getAbsolutePath());
 
-            Map<String, Object> result = Map.of(
-                    "commit_sha", commitSha,
-                    "total_files", 45 + random.nextInt(20),
-                    "java_lines", 280 + random.nextInt(60),
-                    "methods_count", 8 + random.nextInt(6),
-                    "classes_count", 4 + random.nextInt(5)
-            );
-            success = true;
-            return result;
-        } finally {
-            metricsService.recordAnalysisDuration(sample, success);
-        }
+        return Map.of(
+                "commit_sha", commitSha,
+                "total_files", 45 + random.nextInt(20),
+                "java_lines", 280 + random.nextInt(60),
+                "methods_count", 8 + random.nextInt(6),
+                "classes_count", 4 + random.nextInt(5)
+        );
     }
 
     /**
@@ -140,23 +117,15 @@ public class CodeAnalysisService {
      * @return map of delta metrics
      */
     public Map<String, Object> analyzeDiff(File projectDir, String oldCommitSha, String newCommitSha) {
-        Timer.Sample sample = metricsService.startAnalysisTimer();
-        boolean success = false;
-        try {
-            log.info("Stub diff analysis between '{}' and '{}' in project at path: {}", oldCommitSha, newCommitSha, projectDir.getAbsolutePath());
+        log.info("Stub diff analysis between '{}' and '{}' in project at path: {}", oldCommitSha, newCommitSha, projectDir.getAbsolutePath());
 
-            Map<String, Object> result = Map.of(
-                    "old_commit", oldCommitSha,
-                    "new_commit", newCommitSha,
-                    "total_files_delta", random.nextInt(5) - 2,
-                    "java_lines_delta", random.nextInt(50) - 25,
-                    "methods_count_delta", random.nextInt(3) - 1,
-                    "classes_count_delta", random.nextInt(2) - 1
-            );
-            success = true;
-            return result;
-        } finally {
-            metricsService.recordAnalysisDuration(sample, success);
-        }
+        return Map.of(
+                "old_commit", oldCommitSha,
+                "new_commit", newCommitSha,
+                "total_files_delta", random.nextInt(5) - 2,
+                "java_lines_delta", random.nextInt(50) - 25,
+                "methods_count_delta", random.nextInt(3) - 1,
+                "classes_count_delta", random.nextInt(2) - 1
+        );
     }
 }
