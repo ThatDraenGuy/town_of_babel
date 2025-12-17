@@ -8,6 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.config.metrics.MetricsService;
 import ru.itmo.backend.service.downloader.FileManager;
 import ru.itmo.backend.service.downloader.GitClient;
 import ru.itmo.backend.service.downloader.GitProjectService;
@@ -36,6 +37,7 @@ public class GitProjectServiceTest {
     private GitClient gitClient;
     private FileManager fileManager;
     private ProjectAccessService accessService;
+    private MetricsService metricsService;
 
     private GitProjectService service;
     private Path tempStorage;
@@ -47,7 +49,7 @@ public class GitProjectServiceTest {
      */
     private class TestableGitProjectService extends GitProjectService {
         public TestableGitProjectService() {
-            super(gitClient, fileManager, accessService, tempStorage.toString(), 24);
+            super(gitClient, fileManager, accessService, metricsService, tempStorage.toString(), 24, 1024);
         }
 
         @Override
@@ -61,6 +63,7 @@ public class GitProjectServiceTest {
         gitClient = mock(GitClient.class);
         fileManager = mock(FileManager.class);
         accessService = mock(ProjectAccessService.class);
+        metricsService = mock(MetricsService.class);
 
         tempStorage = Files.createTempDirectory("git-repo-test-");
         service = new TestableGitProjectService();
@@ -94,11 +97,15 @@ public class GitProjectServiceTest {
         when(accessService.save(any(GitProjectEntity.class)))
                 .thenAnswer(i -> i.getArgument(0));
 
+        when(gitClient.isValidGitRepository(any(File.class)))
+                .thenReturn(true);
+
         ProjectResponseDTO result = service.getOrCloneProject("http://repo");
 
         assertEquals(UpdateStatus.CLONED, result.updateStatus());
 
         verify(gitClient).cloneProject(eq("http://repo"), any(File.class));
+        verify(gitClient).isValidGitRepository(any(File.class));
 
         ArgumentCaptor<GitProjectEntity> captor = ArgumentCaptor.forClass(GitProjectEntity.class);
         verify(accessService).save(captor.capture());
@@ -122,6 +129,24 @@ public class GitProjectServiceTest {
                 service.getOrCloneProject("http://repo")
         );
 
+        verify(fileManager).deleteDirectory(any(File.class));
+        verify(gitClient, never()).isValidGitRepository(any(File.class));
+    }
+
+    @Test
+    void testGetOrCloneProject_InvalidRepository_CleansUp() throws Exception {
+        when(accessService.accessRepositoryByUrl("http://repo"))
+                .thenReturn(Optional.empty());
+
+        when(gitClient.isValidGitRepository(any(File.class)))
+                .thenReturn(false);
+
+        assertThrows(IllegalStateException.class, () ->
+                service.getOrCloneProject("http://repo")
+        );
+
+        verify(gitClient).cloneProject(eq("http://repo"), any(File.class));
+        verify(gitClient).isValidGitRepository(any(File.class));
         verify(fileManager).deleteDirectory(any(File.class));
     }
 
