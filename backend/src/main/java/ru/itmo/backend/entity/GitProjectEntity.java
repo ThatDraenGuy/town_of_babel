@@ -37,6 +37,7 @@ public class GitProjectEntity {
     public void setId(Long id) { this.id = id; }
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }
+
     public String getLocalPath() { return localPath; }
     public void setLocalPath(String localPath) { this.localPath = localPath; }
     public LocalDateTime getCreatedAt() { return createdAt; }

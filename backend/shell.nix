@@ -11,5 +11,6 @@ pkgs.mkShellNoCC {
     jdk21
     gradle
     jdt-language-server
+    python3.pkgs.lizard
   ];
 }
