@@ -6,9 +6,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import ru.itmo.backend.config.metrics.MetricsService;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.exception.*;
+import io.micrometer.core.instrument.Timer;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +21,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,8 +40,10 @@ public class GitProjectService {
     private final GitClient gitClient;
     private final FileManager fileManager;
     private final ProjectAccessService projectAccessService;
+    private final MetricsService metricsService;
     private final Path storagePath;
     private final long expireHours;
+    private final ConcurrentMap<String, ReentrantLock> repoLocks = new ConcurrentHashMap<>();
 
     private static final Pattern GITHUB_REGEX =
             Pattern.compile("github\\.com[:/](.+?)/(.+?)(\\.git)?$");
@@ -53,17 +61,32 @@ public class GitProjectService {
             GitClient gitClient,
             FileManager fileManager,
             ProjectAccessService projectAccessService,
+            MetricsService metricsService,
             @Value("${repository.storage.path}") String storagePath,
-            @Value("${repository.expire.hours}") long expireHours
+            @Value("${repository.expire.hours}") long expireHours,
+            @Value("${repository.min-free-space-mb:1024}") long minFreeSpaceMb
     ) {
         this.gitClient = gitClient;
         this.fileManager = fileManager;
         this.projectAccessService = projectAccessService;
-        this.storagePath = Path.of(storagePath);
+        this.metricsService = metricsService;
+        this.storagePath = Path.of(storagePath).toAbsolutePath().normalize();
         this.expireHours = expireHours;
 
         try {
             Files.createDirectories(this.storagePath);
+            
+            // Check available disk space
+            long freeSpaceBytes = Files.getFileStore(this.storagePath).getUsableSpace();
+            long minFreeSpaceBytes = minFreeSpaceMb * 1024 * 1024;
+            
+            if (freeSpaceBytes < minFreeSpaceBytes) {
+                log.warn("Low disk space in storage directory: {} MB available (minimum: {} MB)", 
+                        freeSpaceBytes / (1024 * 1024), minFreeSpaceMb);
+            } else {
+                log.info("Storage directory initialized: {} (free space: {} MB)", 
+                        this.storagePath, freeSpaceBytes / (1024 * 1024));
+            }
         } catch (IOException e) {
             log.error("Unable to create storage directory {}", storagePath, e);
             throw new IllegalStateException("Failed to initialize storage directory", e);
@@ -89,37 +112,43 @@ public class GitProjectService {
      * @throws GitAPIException  if Git operations fail
      */
     public ProjectResponseDTO getOrCloneProject(String repoUrl) throws IOException, GitAPIException {
-        Optional<GitProjectEntity> existingOpt = projectAccessService.accessRepositoryByUrl(repoUrl);
-        GitProjectEntity entity;
-        UpdateStatus updateStatus;
+        ReentrantLock lock = repoLocks.computeIfAbsent(repoUrl, key -> new ReentrantLock());
+        lock.lock();
+        try {
+            Optional<GitProjectEntity> existingOpt = projectAccessService.accessRepositoryByUrl(repoUrl);
+            GitProjectEntity entity;
+            UpdateStatus updateStatus;
 
-        if (existingOpt.isPresent()) {
-            entity = existingOpt.get();
-            File dir = new File(entity.getLocalPath());
+            if (existingOpt.isPresent()) {
+                entity = existingOpt.get();
+                File dir = new File(entity.getLocalPath());
 
-            if (dir.exists()) {
-                log.info("Repository exists, attempting git pull: {}", entity.getLocalPath());
-                updateStatus = updateProject(entity);
+                if (dir.exists()) {
+                    log.info("Repository exists, attempting git pull: {}", entity.getLocalPath());
+                    updateStatus = updateProject(entity);
+                } else {
+                    log.warn("Repository directory missing, removing stale metadata: {}", entity.getId());
+                    projectAccessService.delete(entity);
+                    entity = cloneNewRepository(repoUrl);
+                    updateStatus = UpdateStatus.CLONED;
+                }
             } else {
-                log.warn("Repository directory missing, removing stale metadata: {}", entity.getId());
-                projectAccessService.delete(entity);
                 entity = cloneNewRepository(repoUrl);
                 updateStatus = UpdateStatus.CLONED;
             }
-        } else {
-            entity = cloneNewRepository(repoUrl);
-            updateStatus = UpdateStatus.CLONED;
+
+            Map<String, String> parsed = parseGithubUrl(repoUrl);
+
+            return new ProjectResponseDTO(
+                    entity.getId(),
+                    parsed.get("owner"),
+                    parsed.get("repo"),
+                    entity.getLocalPath(),
+                    updateStatus
+            );
+        } finally {
+            lock.unlock();
         }
-
-        Map<String, String> parsed = parseGithubUrl(repoUrl);
-
-        return new ProjectResponseDTO(
-                entity.getId(),
-                parsed.get("owner"),
-                parsed.get("repo"),
-                entity.getLocalPath(),
-                updateStatus
-        );
     }
 
     /**
@@ -130,19 +159,47 @@ public class GitProjectService {
      */
     private UpdateStatus updateProject(GitProjectEntity entity) {
         File dir = new File(entity.getLocalPath());
+        Timer.Sample sample = metricsService.startGitPullTimer();
+        boolean success = false;
 
         try {
             gitClient.pullProject(dir);
             log.info("Repository updated via git pull: {}", entity.getLocalPath());
+            success = true;
             return UpdateStatus.UPDATED;
-        } catch (Exception e) {
-            log.error("Failed to update repository {}: {}", entity.getLocalPath(), e.getMessage());
+        } catch (GitRepositoryNotFoundException e) {
+            log.warn("Repository not found during pull (may have been deleted): {} - {}", 
+                    entity.getLocalPath(), e.getMessage());
+            // Repository was deleted, mark for re-cloning
             return UpdateStatus.NOT_UPDATED;
+        } catch (GitNetworkException e) {
+            log.error("Network error during git pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage());
+            return UpdateStatus.NOT_UPDATED;
+        } catch (GitConflictException e) {
+            log.warn("Merge conflict during git pull for repository {}: {}", 
+                    entity.getLocalPath(), e.getMessage());
+            return UpdateStatus.NOT_UPDATED;
+        } catch (GitAccessException e) {
+            log.error("Access denied during git pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage());
+            return UpdateStatus.NOT_UPDATED;
+        } catch (GitOperationException e) {
+            log.error("Git operation failed during pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage(), e);
+            return UpdateStatus.NOT_UPDATED;
+        } catch (Exception e) {
+            log.error("Unexpected error during git pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage(), e);
+            return UpdateStatus.NOT_UPDATED;
+        } finally {
+            metricsService.recordGitPullDuration(sample, success);
         }
     }
 
     /**
      * Clones a new repository to disk and stores metadata in the database.
+     * If database save fails, the cloned directory is cleaned up to prevent disk space leaks.
      *
      * @param repoUrl repository URL
      * @return saved entity
@@ -152,15 +209,28 @@ public class GitProjectService {
     private GitProjectEntity cloneNewRepository(String repoUrl) throws IOException, GitAPIException {
         Path projectDir = storagePath.resolve(UUID.randomUUID().toString());
         Files.createDirectories(projectDir);
+        boolean directoryCreated = true;
+        Timer.Sample sample = metricsService.startCloneTimer();
+        boolean success = false;
 
         log.info("Cloning repository: {}", repoUrl);
 
         try {
             gitClient.cloneProject(repoUrl, projectDir.toFile());
+            
+            // Validate that cloned directory is a valid Git repository
+            if (!gitClient.isValidGitRepository(projectDir.toFile())) {
+                throw new IllegalStateException("Cloned directory is not a valid Git repository: " + projectDir);
+            }
+            
+            success = true;
         } catch (Exception ex) {
             log.error("Clone failed for {} — cleaning up directory {}", repoUrl, projectDir, ex);
             fileManager.deleteDirectory(projectDir.toFile());
+            directoryCreated = false;
             throw ex;
+        } finally {
+            metricsService.recordCloneDuration(sample, success);
         }
 
         GitProjectEntity entity = new GitProjectEntity();
@@ -169,10 +239,25 @@ public class GitProjectService {
         entity.setCreatedAt(now());
         entity.setExpiresAt(now().plusHours(expireHours));
 
-        projectAccessService.save(entity);
-
-        log.info("Repository cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
-        return entity;
+        try {
+            projectAccessService.save(entity);
+            log.info("Repository cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
+            return entity;
+        } catch (Exception ex) {
+            // Rollback: if database save fails, clean up the cloned directory
+            log.error("Failed to save repository metadata to database for {} — cleaning up directory {}", 
+                     repoUrl, projectDir, ex);
+            if (directoryCreated) {
+                try {
+                    fileManager.deleteDirectory(projectDir.toFile());
+                    log.info("Cleaned up directory after failed database save: {}", projectDir);
+                } catch (Exception cleanupEx) {
+                    log.error("Failed to clean up directory after database save failure: {}", 
+                             projectDir, cleanupEx);
+                }
+            }
+            throw new IllegalStateException("Failed to save repository metadata after cloning", ex);
+        }
     }
 
     /**

@@ -14,7 +14,6 @@ import ru.itmo.backend.evaluator.model.ClassMetric;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;

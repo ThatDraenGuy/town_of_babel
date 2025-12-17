@@ -2,6 +2,7 @@ package ru.itmo.backend.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import ru.itmo.backend.dto.request.gitproject.ProjectUrlDTO;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
@@ -20,7 +21,8 @@ public class GitProjectController {
 
     @Operation(summary = "Clone or retrieve a repository")
     @PostMapping("/clone")
-    public ProjectResponseDTO cloneRepository(@RequestBody ProjectUrlDTO request) throws Exception {
+    public ProjectResponseDTO cloneRepository(@Valid @RequestBody ProjectUrlDTO request) throws Exception {
+        // Validation is handled by @Valid annotation and ProjectUrlDTO constraints
         return gitProjectService.getOrCloneProject(request.url());
     }
 }
