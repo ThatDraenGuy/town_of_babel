@@ -22,9 +22,7 @@ public class GitProjectController {
     @Operation(summary = "Clone or retrieve a repository")
     @PostMapping("/clone")
     public ProjectResponseDTO cloneRepository(@Valid @RequestBody ProjectUrlDTO request) throws Exception {
-        if (request.url() == null || request.url().isBlank()) {
-            throw new IllegalArgumentException("Repository URL cannot be null or empty");
-        }
+        // Validation is handled by @Valid annotation and ProjectUrlDTO constraints
         return gitProjectService.getOrCloneProject(request.url());
     }
 }

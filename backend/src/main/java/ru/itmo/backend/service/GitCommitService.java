@@ -30,6 +30,9 @@ import java.util.stream.StreamSupport;
 public class GitCommitService {
 
     private static final Logger log = LoggerFactory.getLogger(GitCommitService.class);
+    
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int DEFAULT_PAGE = 0;
 
     /**
      * Lists branches with pagination. Returns short branch names.
@@ -77,16 +80,7 @@ public class GitCommitService {
                     .sorted(Comparator.comparing(BranchDTO::name))
                     .collect(Collectors.toList());
 
-            long total = allBranches.size();
-            pageSize = pageSize <= 0 ? 20 : pageSize;
-            page = page < 0 ? 0 : page;
-
-            int start = (int) Math.min((long) page * pageSize, allBranches.size());
-            int end = (int) Math.min((long) (page + 1) * pageSize, allBranches.size());
-
-            List<BranchDTO> items = allBranches.subList(start, end);
-
-            return new PageResponse<>(items, page, pageSize, total);
+            return paginate(allBranches, page, pageSize, BranchDTO.class);
         }
     }
 
@@ -143,14 +137,7 @@ public class GitCommitService {
             List<RevCommit> allCommits = StreamSupport.stream(commitsIterable.spliterator(), false)
                     .toList();
 
-            long total = allCommits.size();
-            pageSize = pageSize <= 0 ? 20 : pageSize;
-            page = page < 0 ? 0 : page;
-
-            int start = (int) Math.min((long) page * pageSize, allCommits.size());
-            int end = (int) Math.min((long) (page + 1) * pageSize, allCommits.size());
-
-            List<CommitDTO> items = allCommits.subList(start, end).stream()
+            List<CommitDTO> allCommitDTOs = allCommits.stream()
                     .map(c -> new CommitDTO(
                             c.getName(),
                             c.getFullMessage(),
@@ -159,7 +146,33 @@ public class GitCommitService {
                     ))
                     .collect(Collectors.toList());
 
-            return new PageResponse<>(items, page, pageSize, total);
+            return paginate(allCommitDTOs, page, pageSize, CommitDTO.class);
         }
+    }
+
+    /**
+     * Applies pagination to a list of items.
+     * Normalizes page and pageSize to default values if invalid.
+     *
+     * @param <T> type of items in the list
+     * @param allItems complete list of items to paginate
+     * @param page zero-based page index (normalized to >= 0)
+     * @param pageSize number of items per page (normalized to > 0)
+     * @param itemType class of items (for type inference)
+     * @return paginated response with items for the requested page
+     */
+    private <T> PageResponse<T> paginate(List<T> allItems, int page, int pageSize, Class<T> itemType) {
+        long total = allItems.size();
+        
+        // Normalize page and pageSize to default values if invalid
+        pageSize = pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        page = page < 0 ? DEFAULT_PAGE : page;
+
+        int start = (int) Math.min((long) page * pageSize, allItems.size());
+        int end = (int) Math.min((long) (page + 1) * pageSize, allItems.size());
+
+        List<T> items = allItems.subList(start, end);
+
+        return new PageResponse<>(items, page, pageSize, total);
     }
 }
