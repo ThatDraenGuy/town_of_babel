@@ -21,5 +21,159 @@
                 }
             ]
         }
+    },
+    {
+        "url": "/api/v1/projects/1/branches/master/commits/*sha/metrics",
+        "body": {
+            "root": {
+                "name": "ru.draen.test",
+                "items": [
+                    {
+                        "name": "Main.java",
+                        "items": [
+                            {
+                                "name": "main",
+                                "metrics": [
+                                    {
+                                        "value": 1,
+                                        "metricCode": "loc"
+                                    },
+                                    {
+                                        "value": 1,
+                                        "metricCode": "docs"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "url": "/api/v1/projects/1/branches/master/commits?page=0&pageSize=10",
+        "body": {
+            "page": 0,
+            "pageSize": 10,
+            "total": 17,
+            "items": [
+                {
+                    "sha": "01",
+                    "message": "initial commit",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123000
+                },
+                {
+                    "sha": "02",
+                    "message": "stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123001
+                },
+                {
+                    "sha": "03",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "04",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "05",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "06",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "07",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "08",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "09",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "10",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                }
+            ]
+        }
+    },
+    {
+        "url": "/api/v1/projects/1/branches/master/commits?page=1&pageSize=10",
+        "searchParams": {
+            "page": 1,
+            "pageSize": 10
+        },
+        "body": {
+            "page": 1,
+            "pageSize": 10,
+            "total": 17,
+            "items": [
+                {
+                    "sha": "11",
+                    "message": "tuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123000
+                },
+                {
+                    "sha": "12",
+                    "message": "stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123001
+                },
+                {
+                    "sha": "13",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "14",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "15",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "16",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                },
+                {
+                    "sha": "17",
+                    "message": "more stuff done",
+                    "author": "ThatDraenGuy",
+                    "timestamp": 1732459123002
+                }
+            ]
+        }
     }
 ]

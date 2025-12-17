@@ -22,18 +22,6 @@ const injectedRtkApi = api.injectEndpoints({
         url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}`,
       }),
     }),
-    getProjectCommitsBrief: build.query<
-      GetProjectCommitsBriefApiResponse,
-      GetProjectCommitsBriefApiArg
-    >({
-      query: queryArg => ({
-        url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}/commits/brief`,
-        params: {
-          page: queryArg.page,
-          pageSize: queryArg.pageSize,
-        },
-      }),
-    }),
     getProjectCommits: build.query<
       GetProjectCommitsApiResponse,
       GetProjectCommitsApiArg
@@ -41,9 +29,27 @@ const injectedRtkApi = api.injectEndpoints({
       query: queryArg => ({
         url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}/commits`,
         params: {
-          metrics: queryArg.metrics,
           page: queryArg.page,
           pageSize: queryArg.pageSize,
+        },
+      }),
+    }),
+    getProjectCommit: build.query<
+      GetProjectCommitApiResponse,
+      GetProjectCommitApiArg
+    >({
+      query: queryArg => ({
+        url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}/commits/${queryArg.sha}`,
+      }),
+    }),
+    getCommitMetrics: build.query<
+      GetCommitMetricsApiResponse,
+      GetCommitMetricsApiArg
+    >({
+      query: queryArg => ({
+        url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}/commits/${queryArg.sha}/metrics`,
+        params: {
+          metrics: queryArg.metrics,
         },
       }),
     }),
@@ -74,22 +80,26 @@ export type GetProjectBranchApiArg = {
   projectId: number;
   branch: string;
 };
-export type GetProjectCommitsBriefApiResponse =
-  /** status 200 OK */ PageResponseCommitBriefDto;
-export type GetProjectCommitsBriefApiArg = {
-  projectId: number;
-  branch: string;
-  page?: number;
-  pageSize?: number;
-};
 export type GetProjectCommitsApiResponse =
   /** status 200 OK */ PageResponseCommitDto;
 export type GetProjectCommitsApiArg = {
   projectId: number;
   branch: string;
-  metrics: number[];
   page?: number;
   pageSize?: number;
+};
+export type GetProjectCommitApiResponse = /** status 200 OK */ CommitDto;
+export type GetProjectCommitApiArg = {
+  projectId: number;
+  branch: string;
+  sha: string;
+};
+export type GetCommitMetricsApiResponse = /** status 200 OK */ CommitMetricsDto;
+export type GetCommitMetricsApiArg = {
+  projectId: number;
+  branch: string;
+  sha: string;
+  metrics: string[];
 };
 export type GetLanguagesApiResponse = /** status 200 OK */ {
   items?: LanguageResponseDto[];
@@ -132,7 +142,7 @@ export type PageInfo = {
   pageSize: number;
   total: number;
 };
-export type CommitBriefDto = {
+export type CommitDto = {
   /** Commit SHA hash */
   sha: string;
   /** Commit message */
@@ -141,9 +151,38 @@ export type CommitBriefDto = {
   author: string;
   /** Commit timestamp in milliseconds since epoch */
   timestamp: number;
+  /** Commit number */
+  number: number;
 };
-export type PageResponseCommitBriefDto = PageInfo & {
-  items: CommitBriefDto[];
+export type PageResponseCommitDto = PageInfo & {
+  items: CommitDto[];
+};
+export type PackageMetricsNodeDto = {
+  name: string;
+  items: MetricsNodeDto[];
+};
+export type MethodMetricDto = {
+  metricCode: string;
+  value: number;
+};
+export type MethodMetricsNodeDto = {
+  name: string;
+  metrics: MethodMetricDto[];
+};
+export type ClassMetricsNodeDto = {
+  name: string;
+  items: MethodMetricsNodeDto[];
+};
+export type MetricsNodeDto = PackageMetricsNodeDto | ClassMetricsNodeDto;
+export type CommitMetricsDto = {
+  commit: CommitDto;
+  root: MetricsNodeDto;
+};
+export type LanguageResponseDto = {
+  languageId: number;
+  languageCode: string;
+  /** Programming language name */
+  languageName: string;
 };
 export type MetricDto = {
   /** Unique metric identifier */
@@ -154,22 +193,6 @@ export type MetricDto = {
   metricDescription: string;
   metricType: 'NUMERIC' | 'COLOR';
 };
-export type CommitMetricDto = {
-  metric: MetricDto;
-  value: number;
-};
-export type CommitDto = CommitBriefDto & {
-  metrics: CommitMetricDto[];
-};
-export type PageResponseCommitDto = PageInfo & {
-  items: CommitDto[];
-};
-export type LanguageResponseDto = {
-  languageId: number;
-  languageCode: string;
-  /** Programming language name */
-  languageName: string;
-};
 export type LanguageMetricsResponseDto = {
   /** List of available metrics for the language */
   items: MetricDto[];
@@ -178,8 +201,9 @@ export const {
   useCloneProjectMutation,
   useGetProjectBranchesQuery,
   useGetProjectBranchQuery,
-  useGetProjectCommitsBriefQuery,
   useGetProjectCommitsQuery,
+  useGetProjectCommitQuery,
+  useGetCommitMetricsQuery,
   useGetLanguagesQuery,
   useGetMetricsQuery,
 } = injectedRtkApi;
