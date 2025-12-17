@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.exception.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +19,9 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,6 +40,7 @@ public class GitProjectService {
     private final ProjectAccessService projectAccessService;
     private final Path storagePath;
     private final long expireHours;
+    private final ConcurrentMap<String, ReentrantLock> repoLocks = new ConcurrentHashMap<>();
 
     private static final Pattern GITHUB_REGEX =
             Pattern.compile("github\\.com[:/](.+?)/(.+?)(\\.git)?$");
@@ -89,37 +94,43 @@ public class GitProjectService {
      * @throws GitAPIException  if Git operations fail
      */
     public ProjectResponseDTO getOrCloneProject(String repoUrl) throws IOException, GitAPIException {
-        Optional<GitProjectEntity> existingOpt = projectAccessService.accessRepositoryByUrl(repoUrl);
-        GitProjectEntity entity;
-        UpdateStatus updateStatus;
+        ReentrantLock lock = repoLocks.computeIfAbsent(repoUrl, key -> new ReentrantLock());
+        lock.lock();
+        try {
+            Optional<GitProjectEntity> existingOpt = projectAccessService.accessRepositoryByUrl(repoUrl);
+            GitProjectEntity entity;
+            UpdateStatus updateStatus;
 
-        if (existingOpt.isPresent()) {
-            entity = existingOpt.get();
-            File dir = new File(entity.getLocalPath());
+            if (existingOpt.isPresent()) {
+                entity = existingOpt.get();
+                File dir = new File(entity.getLocalPath());
 
-            if (dir.exists()) {
-                log.info("Repository exists, attempting git pull: {}", entity.getLocalPath());
-                updateStatus = updateProject(entity);
+                if (dir.exists()) {
+                    log.info("Repository exists, attempting git pull: {}", entity.getLocalPath());
+                    updateStatus = updateProject(entity);
+                } else {
+                    log.warn("Repository directory missing, removing stale metadata: {}", entity.getId());
+                    projectAccessService.delete(entity);
+                    entity = cloneNewRepository(repoUrl);
+                    updateStatus = UpdateStatus.CLONED;
+                }
             } else {
-                log.warn("Repository directory missing, removing stale metadata: {}", entity.getId());
-                projectAccessService.delete(entity);
                 entity = cloneNewRepository(repoUrl);
                 updateStatus = UpdateStatus.CLONED;
             }
-        } else {
-            entity = cloneNewRepository(repoUrl);
-            updateStatus = UpdateStatus.CLONED;
+
+            Map<String, String> parsed = parseGithubUrl(repoUrl);
+
+            return new ProjectResponseDTO(
+                    entity.getId(),
+                    parsed.get("owner"),
+                    parsed.get("repo"),
+                    entity.getLocalPath(),
+                    updateStatus
+            );
+        } finally {
+            lock.unlock();
         }
-
-        Map<String, String> parsed = parseGithubUrl(repoUrl);
-
-        return new ProjectResponseDTO(
-                entity.getId(),
-                parsed.get("owner"),
-                parsed.get("repo"),
-                entity.getLocalPath(),
-                updateStatus
-        );
     }
 
     /**
@@ -135,8 +146,30 @@ public class GitProjectService {
             gitClient.pullProject(dir);
             log.info("Repository updated via git pull: {}", entity.getLocalPath());
             return UpdateStatus.UPDATED;
+        } catch (GitRepositoryNotFoundException e) {
+            log.warn("Repository not found during pull (may have been deleted): {} - {}", 
+                    entity.getLocalPath(), e.getMessage());
+            // Repository was deleted, mark for re-cloning
+            return UpdateStatus.NOT_UPDATED;
+        } catch (GitNetworkException e) {
+            log.error("Network error during git pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage());
+            return UpdateStatus.NOT_UPDATED;
+        } catch (GitConflictException e) {
+            log.warn("Merge conflict during git pull for repository {}: {}", 
+                    entity.getLocalPath(), e.getMessage());
+            return UpdateStatus.NOT_UPDATED;
+        } catch (GitAccessException e) {
+            log.error("Access denied during git pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage());
+            return UpdateStatus.NOT_UPDATED;
+        } catch (GitOperationException e) {
+            log.error("Git operation failed during pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage(), e);
+            return UpdateStatus.NOT_UPDATED;
         } catch (Exception e) {
-            log.error("Failed to update repository {}: {}", entity.getLocalPath(), e.getMessage());
+            log.error("Unexpected error during git pull for repository {}: {}", 
+                     entity.getLocalPath(), e.getMessage(), e);
             return UpdateStatus.NOT_UPDATED;
         }
     }
