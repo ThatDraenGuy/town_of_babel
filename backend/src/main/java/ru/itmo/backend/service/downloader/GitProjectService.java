@@ -176,6 +176,7 @@ public class GitProjectService {
 
     /**
      * Clones a new repository to disk and stores metadata in the database.
+     * If database save fails, the cloned directory is cleaned up to prevent disk space leaks.
      *
      * @param repoUrl repository URL
      * @return saved entity
@@ -185,6 +186,7 @@ public class GitProjectService {
     private GitProjectEntity cloneNewRepository(String repoUrl) throws IOException, GitAPIException {
         Path projectDir = storagePath.resolve(UUID.randomUUID().toString());
         Files.createDirectories(projectDir);
+        boolean directoryCreated = true;
 
         log.info("Cloning repository: {}", repoUrl);
 
@@ -193,6 +195,7 @@ public class GitProjectService {
         } catch (Exception ex) {
             log.error("Clone failed for {} — cleaning up directory {}", repoUrl, projectDir, ex);
             fileManager.deleteDirectory(projectDir.toFile());
+            directoryCreated = false;
             throw ex;
         }
 
@@ -202,10 +205,25 @@ public class GitProjectService {
         entity.setCreatedAt(now());
         entity.setExpiresAt(now().plusHours(expireHours));
 
-        projectAccessService.save(entity);
-
-        log.info("Repository cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
-        return entity;
+        try {
+            projectAccessService.save(entity);
+            log.info("Repository cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
+            return entity;
+        } catch (Exception ex) {
+            // Rollback: if database save fails, clean up the cloned directory
+            log.error("Failed to save repository metadata to database for {} — cleaning up directory {}", 
+                     repoUrl, projectDir, ex);
+            if (directoryCreated) {
+                try {
+                    fileManager.deleteDirectory(projectDir.toFile());
+                    log.info("Cleaned up directory after failed database save: {}", projectDir);
+                } catch (Exception cleanupEx) {
+                    log.error("Failed to clean up directory after database save failure: {}", 
+                             projectDir, cleanupEx);
+                }
+            }
+            throw new IllegalStateException("Failed to save repository metadata after cloning", ex);
+        }
     }
 
     /**

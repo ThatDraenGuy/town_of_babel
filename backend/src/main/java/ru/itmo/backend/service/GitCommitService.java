@@ -43,7 +43,15 @@ public class GitCommitService {
     public PageResponse<BranchDTO> listBranches(GitProjectEntity project, int page, int pageSize) throws Exception {
         Objects.requireNonNull(project, "project must not be null");
 
-        try (Git git = Git.open(new File(project.getLocalPath()))) {
+        File projectDir = new File(project.getLocalPath());
+        if (!projectDir.exists()) {
+            throw new IllegalArgumentException("Project directory does not exist: " + project.getLocalPath());
+        }
+        if (!projectDir.isDirectory()) {
+            throw new IllegalArgumentException("Project path is not a directory: " + project.getLocalPath());
+        }
+
+        try (Git git = Git.open(projectDir)) {
             // list all branches (local + remote)
             List<Ref> refs = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
 
@@ -101,7 +109,15 @@ public class GitCommitService {
         Objects.requireNonNull(project, "project must not be null");
         if (branch == null || branch.isBlank()) throw new IllegalArgumentException("branch must be provided");
 
-        try (Git git = Git.open(new File(project.getLocalPath()))) {
+        File projectDir = new File(project.getLocalPath());
+        if (!projectDir.exists()) {
+            throw new IllegalArgumentException("Project directory does not exist: " + project.getLocalPath());
+        }
+        if (!projectDir.isDirectory()) {
+            throw new IllegalArgumentException("Project path is not a directory: " + project.getLocalPath());
+        }
+
+        try (Git git = Git.open(projectDir)) {
             var repo = git.getRepository();
 
             // try resolving short name, local, then remote

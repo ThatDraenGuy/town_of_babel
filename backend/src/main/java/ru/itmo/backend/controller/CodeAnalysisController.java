@@ -40,7 +40,14 @@ public class CodeAnalysisController {
             throw new IllegalArgumentException("Project ID must be positive");
         }
         GitProjectEntity project = projectAccessService.getById(projectId);
-        return codeAnalysisService.analyzeProject(new File(project.getLocalPath()));
+        File projectDir = new File(project.getLocalPath());
+        if (!projectDir.exists()) {
+            throw new IllegalArgumentException("Project directory does not exist: " + project.getLocalPath());
+        }
+        if (!projectDir.isDirectory()) {
+            throw new IllegalArgumentException("Project path is not a directory: " + project.getLocalPath());
+        }
+        return codeAnalysisService.analyzeProject(projectDir);
     }
 
     @Operation(summary = "Analyze a specific commit",
@@ -54,7 +61,14 @@ public class CodeAnalysisController {
             throw new IllegalArgumentException("Project ID must be positive");
         }
         GitProjectEntity project = projectAccessService.getById(projectId);
-        return codeAnalysisService.analyzeCommit(new File(project.getLocalPath()), commitSha);
+        File projectDir = new File(project.getLocalPath());
+        if (!projectDir.exists()) {
+            throw new IllegalArgumentException("Project directory does not exist: " + project.getLocalPath());
+        }
+        if (!projectDir.isDirectory()) {
+            throw new IllegalArgumentException("Project path is not a directory: " + project.getLocalPath());
+        }
+        return codeAnalysisService.analyzeCommit(projectDir, commitSha);
     }
 
     @Operation(summary = "Analyze diff between commits",
@@ -70,7 +84,13 @@ public class CodeAnalysisController {
             throw new IllegalArgumentException("Project ID must be positive");
         }
         GitProjectEntity project = projectAccessService.getById(projectId);
-        return codeAnalysisService.analyzeDiff(
-                new File(project.getLocalPath()), baseCommit, targetCommit);
+        File projectDir = new File(project.getLocalPath());
+        if (!projectDir.exists()) {
+            throw new IllegalArgumentException("Project directory does not exist: " + project.getLocalPath());
+        }
+        if (!projectDir.isDirectory()) {
+            throw new IllegalArgumentException("Project path is not a directory: " + project.getLocalPath());
+        }
+        return codeAnalysisService.analyzeDiff(projectDir, baseCommit, targetCommit);
     }
 }
