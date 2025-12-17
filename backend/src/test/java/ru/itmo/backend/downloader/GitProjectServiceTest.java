@@ -97,11 +97,15 @@ public class GitProjectServiceTest {
         when(accessService.save(any(GitProjectEntity.class)))
                 .thenAnswer(i -> i.getArgument(0));
 
+        when(gitClient.isValidGitRepository(any(File.class)))
+                .thenReturn(true);
+
         ProjectResponseDTO result = service.getOrCloneProject("http://repo");
 
         assertEquals(UpdateStatus.CLONED, result.updateStatus());
 
         verify(gitClient).cloneProject(eq("http://repo"), any(File.class));
+        verify(gitClient).isValidGitRepository(any(File.class));
 
         ArgumentCaptor<GitProjectEntity> captor = ArgumentCaptor.forClass(GitProjectEntity.class);
         verify(accessService).save(captor.capture());
@@ -125,6 +129,24 @@ public class GitProjectServiceTest {
                 service.getOrCloneProject("http://repo")
         );
 
+        verify(fileManager).deleteDirectory(any(File.class));
+        verify(gitClient, never()).isValidGitRepository(any(File.class));
+    }
+
+    @Test
+    void testGetOrCloneProject_InvalidRepository_CleansUp() throws Exception {
+        when(accessService.accessRepositoryByUrl("http://repo"))
+                .thenReturn(Optional.empty());
+
+        when(gitClient.isValidGitRepository(any(File.class)))
+                .thenReturn(false);
+
+        assertThrows(IllegalStateException.class, () ->
+                service.getOrCloneProject("http://repo")
+        );
+
+        verify(gitClient).cloneProject(eq("http://repo"), any(File.class));
+        verify(gitClient).isValidGitRepository(any(File.class));
         verify(fileManager).deleteDirectory(any(File.class));
     }
 

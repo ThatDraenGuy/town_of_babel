@@ -204,6 +204,12 @@ public class GitProjectService {
 
         try {
             gitClient.cloneProject(repoUrl, projectDir.toFile());
+            
+            // Validate that cloned directory is a valid Git repository
+            if (!gitClient.isValidGitRepository(projectDir.toFile())) {
+                throw new IllegalStateException("Cloned directory is not a valid Git repository: " + projectDir);
+            }
+            
             success = true;
         } catch (Exception ex) {
             log.error("Clone failed for {} — cleaning up directory {}", repoUrl, projectDir, ex);

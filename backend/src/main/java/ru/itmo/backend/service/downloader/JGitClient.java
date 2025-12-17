@@ -33,14 +33,69 @@ public class JGitClient implements GitClient {
     }
 
     @Override
+    public boolean isValidGitRepository(File dir) throws IOException {
+        if (dir == null || !dir.exists() || !dir.isDirectory()) {
+            return false;
+        }
+        
+        try (Git git = Git.open(dir)) {
+            // Try to access repository to verify it's valid
+            var repo = git.getRepository();
+            if (repo == null) {
+                return false;
+            }
+            // Check if repository has at least a config file
+            File gitDir = repo.getDirectory();
+            return gitDir != null && gitDir.exists();
+        } catch (Exception e) {
+            log.debug("Directory {} is not a valid Git repository: {}", dir, e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
     public void pullProject(File dir) throws GitOperationException {
         try (Git git = Git.open(dir)) {
+            // Check if remote repository still exists
+            var repo = git.getRepository();
+            var config = repo.getConfig();
+            var remotes = config.getSubsections("remote");
+            
+            // Try to fetch to check if remote exists
+            try {
+                git.fetch().call();
+            } catch (TransportException fetchEx) {
+                String fetchMessage = fetchEx.getMessage();
+                if (fetchMessage != null && (
+                    fetchMessage.contains("not found") ||
+                    fetchMessage.contains("does not exist") ||
+                    fetchMessage.contains("Repository not found")
+                )) {
+                    String message = "Remote repository has been deleted or is no longer accessible: " + dir;
+                    log.warn(message, fetchEx);
+                    throw new GitRepositoryNotFoundException(message, fetchEx);
+                }
+                // If fetch fails for other reasons, continue with pull
+            }
+            
             git.pull().call();
         } catch (RepositoryNotFoundException e) {
             String message = "Repository not found or has been deleted: " + dir;
             log.warn(message, e);
             throw new GitRepositoryNotFoundException(message, e);
         } catch (TransportException e) {
+            String transportMessage = e.getMessage();
+            // Check if repository was deleted on remote
+            if (transportMessage != null && (
+                transportMessage.contains("not found") ||
+                transportMessage.contains("does not exist") ||
+                transportMessage.contains("Repository not found") ||
+                transportMessage.contains("remote repository is gone")
+            )) {
+                String errorMessage = "Remote repository has been deleted: " + dir;
+                log.warn(errorMessage, e);
+                throw new GitRepositoryNotFoundException(errorMessage, e);
+            }
             String message = "Network error during git pull: " + dir;
             log.error(message, e);
             
