@@ -78,7 +78,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GitRepositoryNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleGitRepositoryNotFound(GitRepositoryNotFoundException ex) {
         logger.warn("Git repository not found: {}", ex.getMessage());
-        
+
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of(
                         "error", "Repository Not Found",

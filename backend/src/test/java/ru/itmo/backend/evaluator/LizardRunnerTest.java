@@ -1,6 +1,7 @@
 package ru.itmo.backend.evaluator;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import ru.itmo.backend.evaluator.lizard.LizardRunner;
 import ru.itmo.backend.evaluator.utils.FilesUtils;
@@ -13,6 +14,16 @@ import java.nio.file.Path;
 import java.util.List;
 
 class LizardRunnerTest {
+
+    private boolean isLizardAvailable() {
+        try {
+            Process process = Runtime.getRuntime().exec("lizard --version");
+            return process.waitFor() == 0;
+        } catch (IOException | InterruptedException e) {
+            return false;
+        }
+    }
+
     @Test
     void lizardParser() {
         try {
@@ -30,6 +41,7 @@ class LizardRunnerTest {
 
     @Test
     void runLizard() {
+        Assumptions.assumeTrue(isLizardAvailable(), "Lizard tool is not available in the environment");
         try {
             List<Path> paths = FilesUtils.collectPaths(new File("src/test/test-data/java/SmokeTest/"), a -> true);
             Assertions.assertEquals(1, paths.size());

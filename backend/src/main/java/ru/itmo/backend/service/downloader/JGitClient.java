@@ -40,14 +40,40 @@ public class JGitClient implements GitClient {
     @Override
     public void cloneProject(String url, File dir) throws GitAPIException {
         try {
-            Git.cloneRepository()
-                    .setURI(url)
-                    .setDirectory(dir)
+        Git.cloneRepository()
+                .setURI(url)
+                .setDirectory(dir)
                     .setTimeout(operationTimeoutSeconds)
                     .call();
         } catch (GitAPIException e) {
             log.error("Failed to clone repository {} to {} (timeout: {}s)", url, dir, operationTimeoutSeconds, e);
             throw e;
+        }
+    }
+
+    @Override
+    public void cloneLocal(File source, File destination) throws GitAPIException {
+        try {
+            Git.cloneRepository()
+                    .setURI(source.getAbsolutePath())
+                    .setDirectory(destination)
+                    .call();
+        } catch (GitAPIException e) {
+            log.error("Failed to locally clone repository from {} to {}", source, destination, e);
+            throw e;
+        }
+    }
+
+    @Override
+    public void checkout(File dir, String commitSha) throws GitOperationException {
+        try (Git git = Git.open(dir)) {
+            git.checkout()
+                    .setName(commitSha)
+                .call();
+            log.info("Checked out {} in {}", commitSha, dir);
+        } catch (Exception e) {
+            log.error("Failed to checkout {} in {}", commitSha, dir, e);
+            throw new GitOperationException("Checkout failed: " + e.getMessage(), e);
         }
     }
 
