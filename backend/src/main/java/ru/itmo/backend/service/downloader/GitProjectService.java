@@ -10,14 +10,19 @@ import ru.itmo.backend.config.metrics.MetricsService;
 import ru.itmo.backend.dto.response.gitproject.ProjectResponseDTO;
 import ru.itmo.backend.dto.response.gitproject.UpdateStatus;
 import ru.itmo.backend.entity.GitProjectEntity;
+import ru.itmo.backend.entity.ProjectInstanceEntity;
 import ru.itmo.backend.exception.*;
+import ru.itmo.backend.repo.ProjectInstanceRepository;
 import io.micrometer.core.instrument.Timer;
 
+import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,9 +45,11 @@ public class GitProjectService {
     private final GitClient gitClient;
     private final FileManager fileManager;
     private final ProjectAccessService projectAccessService;
+    private final ProjectInstanceRepository projectInstanceRepository;
     private final MetricsService metricsService;
     private final Path storagePath;
     private final long expireHours;
+    private final int instanceCount;
     private final ConcurrentMap<String, ReentrantLock> repoLocks = new ConcurrentHashMap<>();
 
     private static final Pattern GITHUB_REGEX =
@@ -61,17 +68,21 @@ public class GitProjectService {
             GitClient gitClient,
             FileManager fileManager,
             ProjectAccessService projectAccessService,
+            ProjectInstanceRepository projectInstanceRepository,
             MetricsService metricsService,
             @Value("${repository.storage.path}") String storagePath,
             @Value("${repository.expire.hours}") long expireHours,
-            @Value("${repository.min-free-space-mb:1024}") long minFreeSpaceMb
+            @Value("${repository.min-free-space-mb:1024}") long minFreeSpaceMb,
+            @Value("${repository.instances.count:6}") int instanceCount
     ) {
         this.gitClient = gitClient;
         this.fileManager = fileManager;
         this.projectAccessService = projectAccessService;
+        this.projectInstanceRepository = projectInstanceRepository;
         this.metricsService = metricsService;
         this.storagePath = Path.of(storagePath).toAbsolutePath().normalize();
         this.expireHours = expireHours;
+        this.instanceCount = instanceCount;
 
         try {
             Files.createDirectories(this.storagePath);
@@ -111,6 +122,7 @@ public class GitProjectService {
      * @throws IOException      if filesystem operations fail
      * @throws GitAPIException  if Git operations fail
      */
+    @Transactional
     public ProjectResponseDTO getOrCloneProject(String repoUrl) throws IOException, GitAPIException {
         ReentrantLock lock = repoLocks.computeIfAbsent(repoUrl, key -> new ReentrantLock());
         lock.lock();
@@ -164,7 +176,22 @@ public class GitProjectService {
 
         try {
             gitClient.pullProject(dir);
-            log.info("Repository updated via git pull: {}", entity.getLocalPath());
+            log.info("Main repository updated via git pull: {}", entity.getLocalPath());
+            
+            // Sync instances
+            List<ProjectInstanceEntity> instances = entity.getInstances();
+            log.info("Synchronizing {} instances for project {}...", instances.size(), entity.getId());
+            for (ProjectInstanceEntity instance : instances) {
+                File instanceDir = new File(instance.getLocalPath());
+                if (instanceDir.exists()) {
+                    gitClient.pullProject(instanceDir);
+                    log.info("Synced instance {} (path: {})", instance.getId(), instance.getLocalPath());
+                } else {
+                    log.warn("Instance directory missing, recreating: {}", instance.getLocalPath());
+                    gitClient.cloneLocal(dir, instanceDir);
+                }
+            }
+            
             success = true;
             return UpdateStatus.UPDATED;
         } catch (GitRepositoryNotFoundException e) {
@@ -239,9 +266,30 @@ public class GitProjectService {
         entity.setCreatedAt(now());
         entity.setExpiresAt(now().plusHours(expireHours));
 
+        // Create instances
+        log.info("Creating {} parallel instances for project {}", instanceCount, repoUrl);
+        for (int i = 0; i < instanceCount; i++) {
+            Path instancePath = storagePath.resolve(UUID.randomUUID().toString());
+            try {
+                Files.createDirectories(instancePath);
+                gitClient.cloneLocal(projectDir.toFile(), instancePath.toFile());
+                
+                ProjectInstanceEntity instance = new ProjectInstanceEntity();
+                instance.setProject(entity);
+                instance.setLocalPath(instancePath.toString());
+                instance.setBusy(false);
+                entity.getInstances().add(instance);
+                log.info("Instance {} created at {}", i + 1, instancePath);
+            } catch (Exception e) {
+                log.error("Failed to create instance {} for {}: {}", i, repoUrl, e.getMessage());
+                // Non-critical, we continue if at least main repo is cloned
+            }
+        }
+
         try {
             projectAccessService.save(entity);
-            log.info("Repository cloned and stored: id={} path={}", entity.getId(), entity.getLocalPath());
+            log.info("Repository cloned and stored with {} instances: id={} path={}", 
+                    entity.getInstances().size(), entity.getId(), entity.getLocalPath());
             return entity;
         } catch (Exception ex) {
             // Rollback: if database save fails, clean up the cloned directory
@@ -283,12 +331,21 @@ public class GitProjectService {
     /**
      * Deletes all projects whose TTL has expired.
      */
+    @Transactional
     public void cleanupExpiredProjectOnce() {
         var expired = projectAccessService.findExpired(now());
 
         for (GitProjectEntity project : expired) {
             log.info("Removing expired repository: {}", project.getId());
+            
+            // Remove main repo
             fileManager.deleteDirectory(new File(project.getLocalPath()));
+            
+            // Remove all instances
+            for (ProjectInstanceEntity instance : project.getInstances()) {
+                fileManager.deleteDirectory(new File(instance.getLocalPath()));
+            }
+            
             projectAccessService.delete(project);
         }
     }

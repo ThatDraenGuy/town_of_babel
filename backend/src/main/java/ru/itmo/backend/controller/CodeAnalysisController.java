@@ -32,8 +32,7 @@ public class CodeAnalysisController {
     @Operation(summary = "Analyze a project", description = "Performs static code analysis on the entire cloned project (last commit on main)")
     @PostMapping("/project/{projectId}")
     public String analyzeProject(@PathVariable Long projectId, @RequestParam List<String> languages) throws Exception {
-        GitProjectEntity project = projectAccessService.getById(projectId);
-        return codeAnalysisService.analyzeProject(new File(project.getLocalPath()), languages);
+        return codeAnalysisService.analyzeProject(projectId, languages);
     }
 
     @Operation(summary = "Get most popular language", description = "Fetches most popular language from Github API")
@@ -61,14 +60,12 @@ public class CodeAnalysisController {
     @Operation(summary = "Analyze a specific commit", description = "Performs static code analysis on the code at a given commit")
     @PostMapping("/project/{projectId}/commit/{commitSha}")
     public Map<String, Object> analyzeCommit(@PathVariable Long projectId, @PathVariable String commitSha) throws Exception {
-        GitProjectEntity project = projectAccessService.getById(projectId);
-        return codeAnalysisService.analyzeCommit(new File(project.getLocalPath()), commitSha);
+        return codeAnalysisService.analyzeCommit(projectId, commitSha);
     }
 
     @Operation(summary = "Analyze diff between commits", description = "Performs analysis on the diff between two commits")
     @PostMapping("/project/{projectId}/diff")
     public Map<String, Object> analyzeDiff(@PathVariable Long projectId, @RequestParam String baseCommit, @RequestParam String targetCommit) throws Exception {
-        GitProjectEntity project = projectAccessService.getById(projectId);
-        return codeAnalysisService.analyzeDiff(new File(project.getLocalPath()), baseCommit, targetCommit);
+        return codeAnalysisService.analyzeDiff(projectId, baseCommit, targetCommit);
     }
 }

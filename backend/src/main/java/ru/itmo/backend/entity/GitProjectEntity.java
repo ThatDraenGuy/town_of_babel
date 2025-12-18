@@ -1,11 +1,17 @@
 package ru.itmo.backend.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "projects",
        uniqueConstraints = @UniqueConstraint(columnNames = "url"))
+@Getter
+@Setter
 public class GitProjectEntity {
 
     @Id
@@ -20,7 +26,11 @@ public class GitProjectEntity {
 
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
     private LocalDateTime expiresAt;
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProjectInstanceEntity> instances = new ArrayList<>();
 
     public GitProjectEntity() {}
 
@@ -31,17 +41,4 @@ public class GitProjectEntity {
         this.createdAt = createdAt;
         this.expiresAt = expiresAt;
     }
-
-    // Getters & setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getUrl() { return url; }
-    public void setUrl(String url) { this.url = url; }
-
-    public String getLocalPath() { return localPath; }
-    public void setLocalPath(String localPath) { this.localPath = localPath; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
 }
