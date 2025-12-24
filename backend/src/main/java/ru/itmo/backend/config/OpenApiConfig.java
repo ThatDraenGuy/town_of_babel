@@ -15,21 +15,8 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Town of Babel API")
-                        .version("1.0.0")
-                        .description("Software quality metrics visualization tool")
-                        .contact(new Contact()
-                                .name("Town of Babel Team")
-                                .email("oleg.haykin@gmail.com")
-                        )
-                        .license(new License()
-                                .name("MIT License")
-                                .url("https://opensource.org/licenses/MIT")
-                        )
-                )
-                .externalDocs(new ExternalDocumentation()
-                        .description("Project Repository")
-                        .url("https://github.com/ThatDraenGuy/town_of_babel")
+                        .title("OpenAPI definition")
+                        .version("v0")
                 );
     }
 }

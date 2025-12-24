@@ -103,7 +103,7 @@ public class GitCommitController {
             @PathVariable Long projectId,
             @PathVariable String branch,
             @PathVariable String sha,
-            @RequestParam List<String> metrics
+            @RequestParam(required = true) List<String> metrics
     ) throws Exception {
         GitProjectEntity project = projectAccessService.getById(projectId);
         CommitDTO commit = commitService.getCommit(project, branch, sha)
