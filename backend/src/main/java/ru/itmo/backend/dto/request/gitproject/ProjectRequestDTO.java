@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Pattern;
 public record ProjectRequestDTO(
         @Schema(
                 description = "URL of the GitHub project",
-                example = "https://github.com/thatdraenguy/ifmo_comp_math_lab1.git"
+                example = "https://github.com/Olegshipu95/VT-Chat.git"
         )
         @NotBlank(message = "URL cannot be blank")
         @Pattern(regexp = "^(https?|git)://.*\\.git$|^https?://.*/([^/]+)/([^/]+)(\\.git)?/?$", 
