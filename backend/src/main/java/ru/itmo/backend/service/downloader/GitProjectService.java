@@ -47,6 +47,7 @@ public class GitProjectService {
     private final ProjectAccessService projectAccessService;
     private final ProjectInstanceRepository projectInstanceRepository;
     private final MetricsService metricsService;
+    private final ru.itmo.backend.service.analysis.CodeAnalysisService codeAnalysisService;
     private final Path storagePath;
     private final long expireHours;
     private final int instanceCount;
@@ -70,6 +71,7 @@ public class GitProjectService {
             ProjectAccessService projectAccessService,
             ProjectInstanceRepository projectInstanceRepository,
             MetricsService metricsService,
+            ru.itmo.backend.service.analysis.CodeAnalysisService codeAnalysisService,
             @Value("${repository.storage.path}") String storagePath,
             @Value("${repository.expire.hours}") long expireHours,
             @Value("${repository.min-free-space-mb:1024}") long minFreeSpaceMb,
@@ -80,6 +82,7 @@ public class GitProjectService {
         this.projectAccessService = projectAccessService;
         this.projectInstanceRepository = projectInstanceRepository;
         this.metricsService = metricsService;
+        this.codeAnalysisService = codeAnalysisService;
         this.storagePath = Path.of(storagePath).toAbsolutePath().normalize();
         this.expireHours = expireHours;
         this.instanceCount = instanceCount;
@@ -151,11 +154,24 @@ public class GitProjectService {
 
             Map<String, String> parsed = parseGithubUrl(repoUrl);
 
+            if (entity.getLanguageCode() == null) {
+                try {
+                    Optional<String> lang = codeAnalysisService.getMostPopularLanguageFromGitHub(repoUrl);
+                    if (lang.isPresent()) {
+                        entity.setLanguageCode(lang.get().toLowerCase());
+                        projectAccessService.save(entity);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to fetch language code for {}: {}", repoUrl, e.getMessage());
+                }
+            }
+
             return new ProjectResponseDTO(
                     entity.getId(),
                     parsed.get("owner"),
                     parsed.get("repo"),
                     entity.getLocalPath(),
+                    entity.getLanguageCode(),
                     updateStatus
             );
         } finally {

@@ -6,12 +6,20 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record MetricDTO(
 
         @Schema(description = "Unique metric identifier", example = "cyclomatic_complexity")
-        String id,
+        String metricCode,
 
         @Schema(description = "Human-readable metric name", example = "Cyclomatic Complexity")
-        String name,
+        String metricName,
 
         @Schema(description = "Detailed description of what the metric measures",
                 example = "Shows complexity of functions based on branching")
-        String description
-) {}
+        String metricDescription,
+
+        @Schema(description = "Type of the metric")
+        MetricType metricType
+) {
+    public enum MetricType {
+        NUMERIC,
+        COLOR
+    }
+}

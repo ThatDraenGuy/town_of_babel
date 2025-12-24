@@ -5,10 +5,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 @Schema(description = "Request to analyze a GitHub project/repository")
-public record ProjectUrlDTO(
+public record ProjectRequestDTO(
         @Schema(
                 description = "URL of the GitHub project",
-                example = "https://github.com/Olegshipu95/VT-Chat.git"
+                example = "https://github.com/thatdraenguy/ifmo_comp_math_lab1.git"
         )
         @NotBlank(message = "URL cannot be blank")
         @Pattern(regexp = "^(https?|git)://.*\\.git$|^https?://.*/([^/]+)/([^/]+)(\\.git)?/?$", 

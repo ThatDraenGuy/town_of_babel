@@ -1,21 +1,20 @@
 package ru.itmo.backend.service.analysis;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.util.Predicates;
 import org.springframework.stereotype.Service;
 
-import ru.itmo.backend.service.ProjectInstanceArbitrator;
+import ru.itmo.backend.dto.response.analysis.*;
+import ru.itmo.backend.dto.response.commit.CommitDTO;
+import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.entity.ProjectInstanceEntity;
+import ru.itmo.backend.service.ProjectInstanceArbitrator;
 import ru.itmo.backend.service.downloader.GitClient;
+
 import java.io.File;
 import java.io.IOException;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -43,6 +42,23 @@ public class CodeAnalysisService {
     public CodeAnalysisService(ProjectInstanceArbitrator arbitrator, GitClient gitClient) {
         this.arbitrator = arbitrator;
         this.gitClient = gitClient;
+    }
+
+    /**
+     * Returns metrics for a specific commit.
+     */
+    public CommitMetricsDTO getCommitMetrics(GitProjectEntity project, CommitDTO commit, List<String> metrics) {
+        // Stub implementation creating a dummy tree structure
+        MethodMetricsNodeDTO method1 = new MethodMetricsNodeDTO("calculateSum", 
+            metrics.stream().map(m -> new MethodMetricDTO(m, 10.0 + random.nextInt(20))).toList());
+        MethodMetricsNodeDTO method2 = new MethodMetricsNodeDTO("printResult", 
+            metrics.stream().map(m -> new MethodMetricDTO(m, 5.0 + random.nextInt(10))).toList());
+        
+        ClassMetricsNodeDTO class1 = new ClassMetricsNodeDTO("Calculator", List.of(method1, method2));
+        
+        PackageMetricsNodeDTO root = new PackageMetricsNodeDTO("ru.itmo.backend", List.of(class1));
+        
+        return new CommitMetricsDTO(commit, root);
     }
 
     /**

@@ -12,6 +12,8 @@ public record ProjectResponseDTO(
         String project,
         @Schema(description = "Local path where the project is stored")
         String path,
+        @Schema(description = "Top language of repository")
+        String languageCode,
         @Schema(description = "Status of repository")
         UpdateStatus updateStatus
 ) {}

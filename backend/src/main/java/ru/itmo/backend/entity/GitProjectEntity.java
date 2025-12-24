@@ -29,6 +29,9 @@ public class GitProjectEntity {
     @Column(nullable = false)
     private LocalDateTime expiresAt;
 
+    @Column
+    private String languageCode;
+
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProjectInstanceEntity> instances = new ArrayList<>();
 
