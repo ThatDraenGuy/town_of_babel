@@ -51,10 +51,10 @@
         }
     },
     {
-        "url": "/api/v1/projects/1/branches/master/commits?page=0&pageSize=10",
+        "url": "/api/v1/projects/1/branches/master/commits?page=0&pageSize=5",
         "body": {
             "page": 0,
-            "pageSize": 10,
+            "pageSize": 5,
             "total": 17,
             "items": [
                 {
@@ -86,7 +86,17 @@
                     "message": "more stuff done",
                     "author": "ThatDraenGuy",
                     "timestamp": 1732459123002
-                },
+                }
+            ]
+        }
+    },
+    {
+        "url": "/api/v1/projects/1/branches/master/commits?page=1&pageSize=5",
+        "body": {
+            "page": 1,
+            "pageSize": 5,
+            "total": 17,
+            "items": [
                 {
                     "sha": "06",
                     "message": "more stuff done",
@@ -121,14 +131,10 @@
         }
     },
     {
-        "url": "/api/v1/projects/1/branches/master/commits?page=1&pageSize=10",
-        "searchParams": {
-            "page": 1,
-            "pageSize": 10
-        },
+        "url": "/api/v1/projects/1/branches/master/commits?page=2&pageSize=5",
         "body": {
-            "page": 1,
-            "pageSize": 10,
+            "page": 2,
+            "pageSize": 5,
             "total": 17,
             "items": [
                 {
@@ -160,7 +166,17 @@
                     "message": "more stuff done",
                     "author": "ThatDraenGuy",
                     "timestamp": 1732459123002
-                },
+                }
+            ]
+        }
+    },
+    {
+        "url": "/api/v1/projects/1/branches/master/commits?page=3&pageSize=5",
+        "body": {
+            "page": 3,
+            "pageSize": 5,
+            "total": 17,
+            "items": [
                 {
                     "sha": "16",
                     "message": "more stuff done",

@@ -1,25 +1,23 @@
 import { useEffect, useState } from 'react';
 
-import { Table } from 'antd';
+import { PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { Button, Descriptions, Flex, Slider, Table } from 'antd';
 import type { ColumnType } from 'antd/es/table';
 import _ from 'lodash';
 
-import {
-  babelApi,
-  useGetProjectCommitsQuery,
-  type CommitDto,
-} from '../../api/babelApi';
+import { useGetProjectCommitsQuery, type CommitDto } from '../../api/babelApi';
+import { useInterval } from '../../utils/use-interval';
 
 interface TProps {
   projectId: number;
   branch: string;
   currentCommit?: string;
-  setCurrentCommit: (sha: string) => void;
+  setCurrentCommit: (sha?: string) => void;
   onEachInPage: (commit: CommitDto) => void;
   onEachInPrefetchedPage: (commit: CommitDto) => void;
 }
 
-const pageSize = 10;
+const pageSize = 5;
 
 export const CommitTable: React.FC<TProps> = ({
   projectId,
@@ -30,6 +28,9 @@ export const CommitTable: React.FC<TProps> = ({
   onEachInPrefetchedPage,
 }) => {
   const [page, setPage] = useState(0);
+  const [isPlay, setIsPlay] = useState(false);
+  const [speed, setSpeed] = useState(1);
+
   const { data: commits, isLoading: isLoadingCommits } =
     useGetProjectCommitsQuery({
       projectId,
@@ -54,8 +55,17 @@ export const CommitTable: React.FC<TProps> = ({
 
   const columns: ColumnType<CommitDto>[] = [
     {
-      title: 'sha',
+      title: 'Project commits',
       dataIndex: 'sha',
+      render: (_value, record) => (
+        <Descriptions title={record.message}>
+          <Descriptions.Item>{record.sha}</Descriptions.Item>
+          <Descriptions.Item>{record.author}</Descriptions.Item>
+          <Descriptions.Item>
+            {new Date(record.timestamp).toString()}
+          </Descriptions.Item>
+        </Descriptions>
+      ),
     },
   ];
 
@@ -85,27 +95,67 @@ export const CommitTable: React.FC<TProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextCommits?.items]);
 
+  useInterval(
+    () => {
+      const currentIndex = _.findIndex(commits?.items, { sha: currentCommit });
+      if (currentIndex < _.size(commits?.items) - 1) {
+        setCurrentCommit(commits?.items[currentIndex + 1]?.sha);
+      } else if ((page + 1) * pageSize < (commits?.total ?? 0)) {
+        setPage(page + 1);
+      } else {
+        setIsPlay(false);
+      }
+    },
+    isPlay ? speed * 1000 : null,
+  );
+
   return (
-    <Table<CommitDto>
-      columns={columns}
-      dataSource={commits?.items ?? []}
-      loading={isLoadingCommits}
-      rowKey={'sha'}
-      onRow={record => ({
-        onClick: () => setCurrentCommit(record.sha),
-      })}
-      rowSelection={{
-        type: 'radio',
-        selectedRowKeys: _.isNil(currentCommit) ? [] : [currentCommit],
-        columnWidth: 0,
-        renderCell: () => <></>,
-      }}
-      pagination={{
-        pageSize: pageSize,
-        current: page + 1,
-        total: commits?.total,
-        onChange: page => setPage(page - 1),
-      }}
-    />
+    <Flex style={{ height: '100%' }} justify="space-between" vertical>
+      <Table<CommitDto>
+        columns={columns}
+        dataSource={commits?.items ?? []}
+        loading={isLoadingCommits}
+        rowKey={'sha'}
+        onRow={record => ({
+          onClick: () => setCurrentCommit(record.sha),
+        })}
+        rowSelection={{
+          type: 'radio',
+          selectedRowKeys: _.isNil(currentCommit) ? [] : [currentCommit],
+          columnWidth: 0,
+          renderCell: () => <></>,
+        }}
+        pagination={{
+          pageSize: pageSize,
+          current: page + 1,
+          total: commits?.total,
+          onChange: page => setPage(page - 1),
+        }}
+      />
+      <Flex
+        align="center"
+        justify="space-between"
+        style={{ marginBottom: 16 }}
+        vertical
+      >
+        <Slider
+          marks={{ 0: '1s', 25: '2s', 50: '3s', 75: '4s', 100: '5s' }}
+          onChange={val => setSpeed(Math.round((val * 4) / 100 + 1))}
+          step={null}
+          style={{ width: '50%' }}
+          tooltip={{
+            formatter: value =>
+              value ? `${Math.round((value * 4) / 100 + 1)}s` : '1s',
+          }}
+          value={((speed - 1) * 100) / 4}
+        />
+        <Flex justify="center">
+          <Button
+            onClick={() => setIsPlay(!isPlay)}
+            icon={isPlay ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+          />
+        </Flex>
+      </Flex>
+    </Flex>
   );
 };

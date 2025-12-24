@@ -281,7 +281,6 @@ export const TimelinePage: React.FC = () => {
     // <>
     <Layout style={{ height: '100%' }}>
       <Layout>
-        <Header>Header</Header>
         <Content>
           <Canvas>
             <ambientLight intensity={Math.PI / 2} />
@@ -302,7 +301,6 @@ export const TimelinePage: React.FC = () => {
             <Controls />
           </Canvas>
         </Content>
-        <Footer>Footer</Footer>
       </Layout>
       <Sider width="25%">
         <CommitTable
