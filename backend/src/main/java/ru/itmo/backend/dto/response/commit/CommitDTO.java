@@ -17,5 +17,8 @@ public record CommitDTO(
 
         @Schema(description = "Commit timestamp in milliseconds since epoch",
                 example = "1732459123000")
-        long timestamp
+        Long timestamp,
+
+        @Schema(description = "Commit number")
+        Integer number
 ) {}

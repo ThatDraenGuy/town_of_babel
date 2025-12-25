@@ -5,8 +5,6 @@ import org.eclipse.jgit.api.ListBranchCommand;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.itmo.backend.dto.response.commit.BranchDTO;
 import ru.itmo.backend.dto.response.commit.CommitDTO;
@@ -29,7 +27,8 @@ import java.util.stream.StreamSupport;
 @Service
 public class GitCommitService {
 
-    private static final Logger log = LoggerFactory.getLogger(GitCommitService.class);
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int DEFAULT_PAGE = 0;
 
     /**
      * Lists branches with pagination. Returns short branch names.
@@ -40,15 +39,23 @@ public class GitCommitService {
      * @return paginated branch DTOs
      * @throws Exception on Git errors
      */
-    public PageResponse<BranchDTO> listBranches(GitProjectEntity project, int page, int pageSize) throws Exception {
+    public List<BranchDTO> listBranches(GitProjectEntity project) throws Exception {
         Objects.requireNonNull(project, "project must not be null");
 
-        try (Git git = Git.open(new File(project.getLocalPath()))) {
+        File projectDir = new File(project.getLocalPath());
+        if (!projectDir.exists()) {
+            throw new IllegalArgumentException("Project directory does not exist: " + project.getLocalPath());
+        }
+        if (!projectDir.isDirectory()) {
+            throw new IllegalArgumentException("Project path is not a directory: " + project.getLocalPath());
+        }
+
+        try (Git git = Git.open(projectDir)) {
             // list all branches (local + remote)
             List<Ref> refs = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
 
             // map to short names for frontend and remove duplicates
-            List<BranchDTO> allBranches = refs.stream()
+            return refs.stream()
                     .map(ref -> {
                         String fullName = ref.getName();
                         String shortName;
@@ -63,23 +70,21 @@ public class GitCommitService {
                         return new BranchDTO(shortName, latestSha);
                     })
                     // remove duplicates (e.g., local master and remote master)
-                    .collect(Collectors.toMap(BranchDTO::name, b -> b, (b1, b2) -> b1))
+                    .collect(Collectors.toMap(BranchDTO::branchName, b -> b, (b1, b2) -> b1))
                     .values()
                     .stream()
-                    .sorted(Comparator.comparing(BranchDTO::name))
+                    .sorted(Comparator.comparing(BranchDTO::branchName))
                     .collect(Collectors.toList());
-
-            long total = allBranches.size();
-            pageSize = pageSize <= 0 ? 20 : pageSize;
-            page = page < 0 ? 0 : page;
-
-            int start = (int) Math.min((long) page * pageSize, allBranches.size());
-            int end = (int) Math.min((long) (page + 1) * pageSize, allBranches.size());
-
-            List<BranchDTO> items = allBranches.subList(start, end);
-
-            return new PageResponse<>(items, page, pageSize, total);
         }
+    }
+
+    /**
+     * Gets a specific branch by name.
+     */
+    public Optional<BranchDTO> getBranch(GitProjectEntity project, String branchName) throws Exception {
+        return listBranches(project).stream()
+                .filter(b -> b.branchName().equals(branchName))
+                .findFirst();
     }
 
     /**
@@ -101,7 +106,15 @@ public class GitCommitService {
         Objects.requireNonNull(project, "project must not be null");
         if (branch == null || branch.isBlank()) throw new IllegalArgumentException("branch must be provided");
 
-        try (Git git = Git.open(new File(project.getLocalPath()))) {
+        File projectDir = new File(project.getLocalPath());
+        if (!projectDir.exists()) {
+            throw new IllegalArgumentException("Project directory does not exist: " + project.getLocalPath());
+        }
+        if (!projectDir.isDirectory()) {
+            throw new IllegalArgumentException("Project path is not a directory: " + project.getLocalPath());
+        }
+
+        try (Git git = Git.open(projectDir)) {
             var repo = git.getRepository();
 
             // try resolving short name, local, then remote
@@ -127,23 +140,56 @@ public class GitCommitService {
             List<RevCommit> allCommits = StreamSupport.stream(commitsIterable.spliterator(), false)
                     .toList();
 
-            long total = allCommits.size();
-            pageSize = pageSize <= 0 ? 20 : pageSize;
-            page = page < 0 ? 0 : page;
+            int totalCount = allCommits.size();
+            List<CommitDTO> allCommitDTOs = new ArrayList<>();
+            for (int i = 0; i < totalCount; i++) {
+                RevCommit c = allCommits.get(i);
+                allCommitDTOs.add(new CommitDTO(
+                        c.getName(),
+                        c.getFullMessage(),
+                        c.getAuthorIdent() != null ? c.getAuthorIdent().getName() : null,
+                        ((long) c.getCommitTime()) * 1000L,
+                        totalCount - i // Commit number (1-based, descending)
+                ));
+            }
 
-            int start = (int) Math.min((long) page * pageSize, allCommits.size());
-            int end = (int) Math.min((long) (page + 1) * pageSize, allCommits.size());
-
-            List<CommitDTO> items = allCommits.subList(start, end).stream()
-                    .map(c -> new CommitDTO(
-                            c.getName(),
-                            c.getFullMessage(),
-                            c.getAuthorIdent() != null ? c.getAuthorIdent().getName() : null,
-                            ((long) c.getCommitTime()) * 1000L
-                    ))
-                    .collect(Collectors.toList());
-
-            return new PageResponse<>(items, page, pageSize, total);
+            return paginate(allCommitDTOs, page, pageSize, CommitDTO.class);
         }
+    }
+
+    /**
+     * Gets a specific commit by SHA.
+     */
+    public Optional<CommitDTO> getCommit(GitProjectEntity project, String branch, String sha) throws Exception {
+        // This is a simple implementation, might need optimization if many commits
+        return listCommits(project, branch, 0, Integer.MAX_VALUE).items().stream()
+                .filter(c -> c.sha().equals(sha))
+                .findFirst();
+    }
+
+    /**
+     * Applies pagination to a list of items.
+     * Normalizes page and pageSize to default values if invalid.
+     *
+     * @param <T> type of items in the list
+     * @param allItems complete list of items to paginate
+     * @param page zero-based page index (normalized to >= 0)
+     * @param pageSize number of items per page (normalized to > 0)
+     * @param itemType class of items (for type inference)
+     * @return paginated response with items for the requested page
+     */
+    private <T> PageResponse<T> paginate(List<T> allItems, int page, int pageSize, Class<T> itemType) {
+        long total = allItems.size();
+        
+        // Normalize page and pageSize to default values if invalid
+        pageSize = pageSize <= 0 ? DEFAULT_PAGE_SIZE : pageSize;
+        page = page < 0 ? DEFAULT_PAGE : page;
+
+        int start = (int) Math.min((long) page * pageSize, allItems.size());
+        int end = (int) Math.min((long) (page + 1) * pageSize, allItems.size());
+
+        List<T> items = allItems.subList(start, end);
+
+        return new PageResponse<>(items, page, pageSize, total);
     }
 }

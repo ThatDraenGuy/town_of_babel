@@ -2,17 +2,47 @@ reference:
   languages:
     - language: Java
       metrics:
-        - id: loc
+        - id: NLOC
           name: Lines of Code
-          description: Количество строк кода
-        - id: files
-          name: Number of files
-          description: Количество файлов
-    - language: Kotlin
+          description: Number of lines of code (excluding comments and blank lines)
+        - id: CCN
+          name: Cyclomatic Complexity Number
+          description: Measures the complexity of a function based on the number of independent paths through the code
+        - id: PARAM
+          name: Number of Parameters
+          description: Number of parameters in a function
+        - id: LENGTH
+          name: Function Length
+          description: Total number of lines in a function
+        - id: FILE
+          name: File Name
+          description: Source file name containing the function
+        - id: LOCATION
+          name: Function Location
+          description: Line number where the function starts in the source file
+        - id: FULL_NAME
+          name: Full Function Name
+          description: Fully qualified name of the function including class and package
+    - language: C++
       metrics:
-        - id: loc
+        - id: NLOC
           name: Lines of Code
-          description: Количество строк кода
-        - id: files
-          name: Number of files
-          description: Количество файлов
+          description: Number of lines of code (excluding comments and blank lines)
+        - id: CCN
+          name: Cyclomatic Complexity Number
+          description: Measures the complexity of a function based on the number of independent paths through the code
+        - id: PARAM
+          name: Number of Parameters
+          description: Number of parameters in a function
+        - id: LENGTH
+          name: Function Length
+          description: Total number of lines in a function
+        - id: FILE
+          name: File Name
+          description: Source file name containing the function
+        - id: LOCATION
+          name: Function Location
+          description: Line number where the function starts in the source file
+        - id: FULL_NAME
+          name: Full Function Name
+          description: Fully qualified name of the function including namespace and class
