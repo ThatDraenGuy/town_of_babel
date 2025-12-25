@@ -109,7 +109,6 @@ public class GitCommitController {
         CommitDTO commit = commitService.getCommit(project, branch, sha)
                 .orElseThrow(() -> new IllegalArgumentException("Commit not found: " + sha));
         
-        // This is a stub implementation for metrics
         CommitMetricsDTO metricsDTO = codeAnalysisService.getCommitMetrics(project, commit, metrics);
         return ResponseEntity.ok(metricsDTO);
     }
