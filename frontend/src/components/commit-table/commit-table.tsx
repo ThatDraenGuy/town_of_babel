@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { PauseCircleOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { Button, Descriptions, Flex, Slider, Table } from 'antd';
+import { Button, Descriptions, Flex, Slider, Table, Tooltip } from 'antd';
 import type { ColumnType } from 'antd/es/table';
 import _ from 'lodash';
 
@@ -58,7 +58,17 @@ export const CommitTable: React.FC<TProps> = ({
       title: 'Project commits',
       dataIndex: 'sha',
       render: (_value, record) => (
-        <Descriptions title={record.message}>
+        <Descriptions
+          title={
+            _.size(record.message) > 45 ? (
+              <Tooltip
+                title={record.message}
+              >{`${record.message.substring(0, 45)}...`}</Tooltip>
+            ) : (
+              record.message
+            )
+          }
+        >
           <Descriptions.Item>{record.sha}</Descriptions.Item>
           <Descriptions.Item>{record.author}</Descriptions.Item>
           <Descriptions.Item>
@@ -130,6 +140,7 @@ export const CommitTable: React.FC<TProps> = ({
           current: page + 1,
           total: commits?.total,
           onChange: page => setPage(page - 1),
+          showSizeChanger: false,
         }}
       />
       <Flex

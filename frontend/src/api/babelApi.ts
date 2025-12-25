@@ -12,14 +12,16 @@ const injectedRtkApi = api.injectEndpoints({
       GetProjectBranchesApiResponse,
       GetProjectBranchesApiArg
     >({
-      query: queryArg => ({ url: `/projects/${queryArg.projectId}/branches` }),
+      query: queryArg => ({
+        url: `/projects/${encodeURIComponent(String(queryArg.projectId))}/branches`,
+      }),
     }),
     getProjectBranch: build.query<
       GetProjectBranchApiResponse,
       GetProjectBranchApiArg
     >({
       query: queryArg => ({
-        url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}`,
+        url: `/projects/${encodeURIComponent(String(queryArg.projectId))}/branches/${encodeURIComponent(String(queryArg.branch))}`,
       }),
     }),
     getProjectCommits: build.query<
@@ -27,7 +29,7 @@ const injectedRtkApi = api.injectEndpoints({
       GetProjectCommitsApiArg
     >({
       query: queryArg => ({
-        url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}/commits`,
+        url: `/projects/${encodeURIComponent(String(queryArg.projectId))}/branches/${encodeURIComponent(String(queryArg.branch))}/commits`,
         params: {
           page: queryArg.page,
           pageSize: queryArg.pageSize,
@@ -39,7 +41,7 @@ const injectedRtkApi = api.injectEndpoints({
       GetProjectCommitApiArg
     >({
       query: queryArg => ({
-        url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}/commits/${queryArg.sha}`,
+        url: `/projects/${encodeURIComponent(String(queryArg.projectId))}/branches/${encodeURIComponent(String(queryArg.branch))}/commits/${encodeURIComponent(String(queryArg.sha))}`,
       }),
     }),
     getCommitMetrics: build.query<
@@ -47,7 +49,7 @@ const injectedRtkApi = api.injectEndpoints({
       GetCommitMetricsApiArg
     >({
       query: queryArg => ({
-        url: `/projects/${queryArg.projectId}/branches/${queryArg.branch}/commits/${queryArg.sha}/metrics`,
+        url: `/projects/${encodeURIComponent(String(queryArg.projectId))}/branches/${encodeURIComponent(String(queryArg.branch))}/commits/${encodeURIComponent(String(queryArg.sha))}/metrics`,
         params: {
           metrics: queryArg.metrics,
         },
@@ -58,7 +60,7 @@ const injectedRtkApi = api.injectEndpoints({
     }),
     getMetrics: build.query<GetMetricsApiResponse, GetMetricsApiArg>({
       query: queryArg => ({
-        url: `/languages/${queryArg.languageCode}/metrics`,
+        url: `/languages/${encodeURIComponent(String(queryArg.languageCode))}/metrics`,
       }),
     }),
   }),

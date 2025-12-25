@@ -74,7 +74,21 @@ public class CodeAnalysisService {
             arbitrator.releaseInstance(instance.getId());
         }
     }
-    
+
+    private record Package(String name, Map<String, Package> packages, List<ClassMetricsNodeDTO> classes) {
+        PackageMetricsNodeDTO toNode() {
+            var packageNodes = packages.values().stream().map(Package::toNode).toList();
+            if (classes.isEmpty() && packageNodes.size() == 1) {
+                var inner = packageNodes.getFirst();
+                if (name.equals("<root>")) return inner;
+                return new PackageMetricsNodeDTO(name + "." + inner.name(), inner.items());
+            }
+            List<MetricsNodeDTO> nodes = new ArrayList<>();
+            nodes.addAll(packageNodes);
+            nodes.addAll(classes);
+            return new PackageMetricsNodeDTO(name, nodes);
+        }
+    };
     /**
      * Converts a map of ClassMetric to a MetricsNodeDTO tree structure.
      * Groups classes by package and creates a hierarchical structure.
@@ -124,31 +138,19 @@ public class CodeAnalysisService {
         }
         
         // Create package nodes
-        List<MetricsNodeDTO> packageNodes = new ArrayList<>();
+        Package root = new Package("<root>", new HashMap<>(), new ArrayList<>());
         for (Map.Entry<String, List<ClassMetricsNodeDTO>> entry : packageMap.entrySet()) {
             String packageName = entry.getKey();
-            List<ClassMetricsNodeDTO> classes = entry.getValue();
-            
-            if (packageName.isEmpty()) {
-                // If no package, add classes directly
-                packageNodes.addAll(classes);
-            } else {
-                // Create package node with classes
-                PackageMetricsNodeDTO packageNode = new PackageMetricsNodeDTO(
-                    packageName,
-                    new ArrayList<>(classes)
-                );
-                packageNodes.add(packageNode);
+            String[] steps = packageName.split("\\.");
+            Package currentPackage = root;
+            for (String step : steps) {
+                currentPackage = currentPackage.packages.computeIfAbsent(step, k -> new Package(k, new HashMap<>(), new ArrayList<>()));
             }
+            List<ClassMetricsNodeDTO> classes = entry.getValue();
+            currentPackage.classes.addAll(classes);
         }
-        
-        // If we have only one root package or no packages, return it directly
-        if (packageNodes.size() == 1) {
-            return packageNodes.get(0);
-        }
-        
-        // Otherwise, wrap in a root package
-        return new PackageMetricsNodeDTO("", packageNodes);
+
+        return root.toNode();
     }
 
     /**

@@ -6,6 +6,7 @@ const config = {
   apiImport: 'baseApi',
   outputFile: '../../../src/api/babelApi.ts',
   exportName: 'babelApi',
+  encodePathParams: true,
   hooks: true,
 };
 

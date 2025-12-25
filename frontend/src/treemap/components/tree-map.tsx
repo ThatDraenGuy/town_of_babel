@@ -7,9 +7,17 @@ import { TreeNode } from './tree-node';
 type TProps = Omit<ThreeElements['mesh'], 'position'> & {
   position: [x: number, y: number, z: number];
   tree: TTreeNode;
+  selected?: string;
+  setSelected: (id: string) => void;
 };
 
-export const TreeMap: React.FC<TProps> = ({ position, tree, ...props }) => {
+export const TreeMap: React.FC<TProps> = ({
+  position,
+  tree,
+  selected,
+  setSelected,
+  ...props
+}) => {
   const resolved = resolveTree(tree);
   const geometry = [
     Math.sqrt(resolved.area),
@@ -28,6 +36,8 @@ export const TreeMap: React.FC<TProps> = ({ position, tree, ...props }) => {
           dimensions: [geometry[0], geometry[2]],
           position: [0, 0],
         }}
+        selected={selected}
+        setSelected={setSelected}
       />
     </mesh>
   );

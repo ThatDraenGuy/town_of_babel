@@ -138,7 +138,7 @@ public class GitCommitService {
 
             // materialize list for pagination
             List<RevCommit> allCommits = StreamSupport.stream(commitsIterable.spliterator(), false)
-                    .toList();
+                    .toList().reversed();
 
             int totalCount = allCommits.size();
             List<CommitDTO> allCommitDTOs = new ArrayList<>();

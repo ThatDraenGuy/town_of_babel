@@ -88,7 +88,8 @@ public class JavaMetricEvaluator implements MetricEvaluator {
         String packageName = getPackageName(sourceFileName);
         String[] parts = methodName.split("::");
         String simpleMethodName = parts[parts.length - 1];
-        String simpleClassName = packageName + "." + methodName.substring(0, simpleMethodName.length() - 2);
+        String simpleClassName = packageName + "." + (parts.length == 1 ? "<unnamed>" : parts[0]);
+//        String simpleClassName = packageName + "." + methodName.substring(0, methodName.length() - simpleMethodName.length() - "::".length());
         return new ClassMethod(simpleClassName, simpleMethodName);
     }
 

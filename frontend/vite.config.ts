@@ -10,8 +10,8 @@ export default defineConfig({
         plugins: [['babel-plugin-react-compiler']],
       },
     }),
-    mockDevServerPlugin({
-      prefix: '^/api/v1',
-    }),
+    // mockDevServerPlugin({
+    //   prefix: '^/api/v1',
+    // }),
   ],
 });

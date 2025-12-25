@@ -10,6 +10,8 @@ import Search, { type SearchProps } from 'antd/es/input/Search';
 import _ from 'lodash';
 
 import { babelApi, type ProjectResponseDto } from '../../api/babelApi';
+import { useAppDispatch, useAppSelector } from '../../hooks';
+import { setProject } from '../../slices/project-slice';
 
 const Plane = (props: ThreeElements['mesh']) => {
   return (
@@ -28,10 +30,12 @@ interface TFormData {
 }
 
 export const WelcomePage: React.FC = () => {
-  const [project, setProject] = useState<ProjectResponseDto>();
+  const dispatch = useAppDispatch();
+  const project = useAppSelector(state => state.project.project);
   const [form] = useForm<TFormData>();
   const navigate = useNavigate();
-  const [cloneProject] = babelApi.useCloneProjectMutation();
+  const [cloneProject, { isLoading: isCloningProject }] =
+    babelApi.useCloneProjectMutation();
 
   const { data: branches, isLoading: isLoadingBranches } =
     babelApi.useGetProjectBranchesQuery(
@@ -46,12 +50,12 @@ export const WelcomePage: React.FC = () => {
 
   const onSearch: SearchProps['onSearch'] = async value => {
     const result = await cloneProject({ projectRequestDto: { url: value } });
-    setProject(result.data);
+    dispatch(setProject({ project: result.data, url: value }));
   };
 
   const onSubmit: FormProps<TFormData>['onFinish'] = values => {
     navigate(
-      `/projects/${project?.projectId}/${values.branch}?area=${values.area}&height=${values.height}&color=${values.color}`,
+      `/projects/${project?.projectId}/${encodeURIComponent(values.branch)}?area=${values.area}&height=${values.height}&color=${values.color}`,
     );
   };
 
@@ -84,7 +88,13 @@ export const WelcomePage: React.FC = () => {
           _.isNil(project)
             ? []
             : [
-                <Button onClick={() => setProject(undefined)}>Back</Button>,
+                <Button
+                  onClick={() =>
+                    setProject({ project: undefined, url: undefined })
+                  }
+                >
+                  Back
+                </Button>,
                 <Button onClick={() => form.submit()} type="primary">
                   Submit
                 </Button>,
@@ -103,6 +113,7 @@ export const WelcomePage: React.FC = () => {
             enterButton
             size="large"
             onSearch={onSearch}
+            loading={isCloningProject}
           />
         ) : (
           <Form form={form} onFinish={onSubmit}>
@@ -163,13 +174,16 @@ export const WelcomePage: React.FC = () => {
             <FormItem
               name="color"
               required
-              label="Metric to show via house area"
+              label="Metric to show via house color"
               rules={[{ required: true }]}
             >
               <Select
                 loading={isLoadingMetrics}
                 options={_.map(
-                  _.filter(metrics?.items, item => item.metricType === 'COLOR'),
+                  _.filter(
+                    metrics?.items,
+                    item => item.metricType === 'NUMERIC',
+                  ),
                   metric => ({
                     label: metric.metricName,
                     value: metric.metricCode,
