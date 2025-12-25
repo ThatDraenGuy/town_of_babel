@@ -1,19 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 
-import { GithubOutlined } from '@ant-design/icons';
 import {
   OrbitControls as Controls,
   OrthographicCamera,
   PerspectiveCamera,
 } from '@react-three/drei';
 import { Canvas, type ThreeElements } from '@react-three/fiber';
-import { Button, Descriptions, Drawer, Layout } from 'antd';
+import { Descriptions, Drawer, Layout } from 'antd';
 import Sider from 'antd/es/layout/Sider';
 import { Content } from 'antd/es/layout/layout';
 import _ from 'lodash';
 import { Color } from 'three';
-import { label } from 'three/tsl';
 
 import {
   babelApi,
@@ -42,7 +40,7 @@ export const TimelinePage: React.FC = () => {
   const params = useParams();
   const projectId = _.toNumber(params['projectId']);
   const branch = params['branch'] ?? '';
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const prefetch = babelApi.usePrefetch('getCommitMetrics');
   const areaMetric = searchParams.get('area') ?? ''; //TODO actual fallbacks?
   const heightMetric = searchParams.get('height') ?? '';
@@ -57,16 +55,15 @@ export const TimelinePage: React.FC = () => {
     { skip: _.isNil(project.project) },
   );
 
-  const { data: commitData, isLoading: isLoadingCommitData } =
-    useGetCommitMetricsQuery(
-      {
-        projectId,
-        branch,
-        sha: commitSha ?? '',
-        metrics: _.uniq([areaMetric, heightMetric, colorMetric]),
-      },
-      { skip: _.isNil(commitSha) },
-    );
+  const { data: commitData } = useGetCommitMetricsQuery(
+    {
+      projectId,
+      branch,
+      sha: commitSha ?? '',
+      metrics: _.uniq([areaMetric, heightMetric, colorMetric]),
+    },
+    { skip: _.isNil(commitSha) },
+  );
 
   const prefetchMetrics = (commit: CommitDto) => {
     prefetch({
@@ -116,6 +113,7 @@ export const TimelinePage: React.FC = () => {
       type: 'node',
     });
     return commitData?.root ? mapNode(commitData?.root) : undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commitData]);
 
   const findMethodData = (id?: string) => {

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { OrbitControls as Controls } from '@react-three/drei';
@@ -9,7 +8,7 @@ import FormItem from 'antd/es/form/FormItem';
 import Search, { type SearchProps } from 'antd/es/input/Search';
 import _ from 'lodash';
 
-import { babelApi, type ProjectResponseDto } from '../../api/babelApi';
+import { babelApi } from '../../api/babelApi';
 import { useAppDispatch, useAppSelector } from '../../hooks';
 import { setProject } from '../../slices/project-slice';
 

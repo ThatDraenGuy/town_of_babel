@@ -1,8 +1,4 @@
-import {
-  createSelector,
-  createSlice,
-  type PayloadAction,
-} from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import type { ProjectResponseDto } from '../api/babelApi';
 
@@ -26,8 +22,6 @@ export const projectSlice = createSlice({
     },
   },
 });
-
-// export const selectProject = createSelector((state: State) => state.project, item);
 
 export const { setProject } = projectSlice.actions;
 
