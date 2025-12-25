@@ -2,6 +2,7 @@ import type { Color } from '@react-three/fiber';
 import _ from 'lodash';
 
 export interface TTreeLeaf {
+  id: string;
   name: string;
   area: number;
   height: number;
@@ -23,7 +24,7 @@ export interface TResolvedTreeNode {
   type: 'node';
 }
 
-export const PADDING_MUL = 1.7;
+export const PADDING_MUL = 1.4;
 export const MARGIN_MUL = 1.1;
 
 export const resolveTree = (tree: TTreeNode): TResolvedTreeNode => {

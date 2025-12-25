@@ -1,229 +1,199 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router';
 
-import { OrbitControls as Controls } from '@react-three/drei';
-import { Canvas, type ThreeElements } from '@react-three/fiber';
-import { Container, Fullscreen, Text } from '@react-three/uikit';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@react-three/uikit-default';
+  OrbitControls as Controls,
+  OrthographicCamera,
+  PerspectiveCamera,
+} from '@react-three/drei';
+import { Canvas, type ThreeElements } from '@react-three/fiber';
+import { Descriptions, Drawer, Layout } from 'antd';
+import Sider from 'antd/es/layout/Sider';
+import { Content } from 'antd/es/layout/layout';
 import _ from 'lodash';
 import { Color } from 'three';
 
-import { CommitCard } from '../../components/commit-card/commit-card';
-import { PaginationPicker } from '../../components/pagination-picker/pagination-picker';
-import type { TTreeNode } from '../../treemap/algorithm/tree';
+import {
+  babelApi,
+  useGetCommitMetricsQuery,
+  type CommitDto,
+  type MethodMetricsNodeDto,
+  type MetricsNodeDto,
+} from '../../api/babelApi';
+import { CommitTable } from '../../components/commit-table/commit-table';
+import { useAppSelector } from '../../hooks';
+import type { TTreeLeaf, TTreeNode } from '../../treemap/algorithm/tree';
 import { TreeMap } from '../../treemap/components/tree-map';
-import type { TCommitMetaData } from '../../types/commit';
 
 const Plane = (props: ThreeElements['mesh']) => {
   return (
     <mesh {...props} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[50, 50]} />
+      <planeGeometry args={[500, 500]} />
       <meshStandardMaterial color="gray" />
     </mesh>
   );
 };
 
-type TResolvedCommitData = {
-  tree: TTreeNode;
-  commit: TCommitMetaData;
-};
+export const TimelinePage: React.FC = () => {
+  const project = useAppSelector(state => state.project);
 
-const commits: TResolvedCommitData[] = [
-  {
-    commit: {
-      hash: '9e1e694',
-      msg: 'initial commit',
-      date: '29.10.2025',
-      author: 'ThatDraenGuy',
-    },
-    tree: {
-      name: 'ru.draen.test',
-      type: 'node',
-      children: [
-        {
-          name: 'Main.java',
-          type: 'node',
-          children: [
-            {
-              name: 'main',
-              type: 'leaf',
-              area: 1,
-              height: 1,
-              color: Color.NAMES.green,
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    commit: {
-      hash: '063438e',
-      msg: 'feat: first classes',
-      date: '30.10.2025',
-      author: 'ThatDraenGuy',
-    },
-    tree: {
-      name: 'ru.draen.test',
-      type: 'node',
-      children: [
-        {
-          name: 'Main.java',
-          type: 'node',
-          children: [
-            {
-              name: 'main',
-              type: 'leaf',
-              area: 2,
-              height: 1,
-              color: Color.NAMES.yellow,
-            },
-            {
-              name: 'processData',
-              type: 'leaf',
-              area: 4,
-              height: 2,
-              color: Color.NAMES.green,
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    commit: {
-      hash: '543203f',
-      msg: 'feat: lab done',
-      date: '02.11.2025',
-      author: 'ThatDraenGuy',
-    },
-    tree: {
-      name: 'ru.draen.test',
-      type: 'node',
-      children: [
-        {
-          name: 'Main.java',
-          type: 'node',
-          children: [
-            {
-              name: 'main',
-              type: 'leaf',
-              area: 2,
-              height: 1,
-              color: Color.NAMES.yellow,
-            },
-            {
-              name: 'processData',
-              type: 'leaf',
-              area: 4,
-              height: 2,
-              color: Color.NAMES.green,
-            },
-          ],
-        },
-        {
-          name: 'Processor.java',
-          type: 'node',
-          children: [
-            {
-              name: 'read',
-              type: 'leaf',
-              area: 4,
-              height: 1,
-              color: Color.NAMES.red,
-            },
-            {
-              name: 'close',
-              type: 'leaf',
-              area: 4,
-              height: 2,
-              color: Color.NAMES.green,
-            },
-            {
-              name: 'write',
-              type: 'leaf',
-              area: 4,
-              height: 3,
-              color: Color.NAMES.yellow,
-            },
-            {
-              name: 'append',
-              type: 'leaf',
-              area: 1,
-              height: 4,
-              color: Color.NAMES.green,
-            },
-            {
-              name: 'flush',
-              type: 'leaf',
-              area: 1,
-              height: 5,
-              color: Color.NAMES.red,
-            },
-          ],
-        },
-        {
-          name: 'Utils.java',
-          type: 'node',
-          children: [
-            {
-              name: 'capitalizeLetters',
-              type: 'leaf',
-              area: 4,
-              height: 2,
-              color: Color.NAMES.green,
-            },
-          ],
-        },
-      ],
-    },
-  },
-];
+  const params = useParams();
+  const projectId = _.toNumber(params['projectId']);
+  const branch = params['branch'] ?? '';
+  const [searchParams] = useSearchParams();
+  const prefetch = babelApi.usePrefetch('getCommitMetrics');
+  const areaMetric = searchParams.get('area') ?? ''; //TODO actual fallbacks?
+  const heightMetric = searchParams.get('height') ?? '';
+  const colorMetric = searchParams.get('color') ?? '';
 
-export const Timeline: React.FC = () => {
-  const [page, setPage] = useState(0);
+  const [commitSha, setCommitSha] = useState<string>();
+  const [isPlay, setIsPlay] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<string>();
+
+  const { data: metrics } = babelApi.useGetMetricsQuery(
+    { languageCode: project.project?.languageCode ?? '' },
+    { skip: _.isNil(project.project) },
+  );
+
+  const { data: commitData } = useGetCommitMetricsQuery(
+    {
+      projectId,
+      branch,
+      sha: commitSha ?? '',
+      metrics: _.uniq([areaMetric, heightMetric, colorMetric]),
+    },
+    { skip: _.isNil(commitSha) },
+  );
+
+  const prefetchMetrics = (commit: CommitDto) => {
+    prefetch({
+      projectId,
+      branch,
+      sha: commit.sha,
+      metrics: _.uniq([areaMetric, heightMetric, colorMetric]),
+    });
+  };
+
+  const isLeaf = (
+    item: MethodMetricsNodeDto | MetricsNodeDto,
+  ): item is MethodMetricsNodeDto => 'metrics' in item;
+
+  const tree = useMemo(() => {
+    const mapLeaf = (
+      node: MethodMetricsNodeDto,
+      prefix?: string,
+    ): TTreeLeaf => {
+      const area =
+        _.find(node.metrics, metric => metric.metricCode === areaMetric)
+          ?.numberValue ?? 0;
+      const height =
+        _.find(node.metrics, metric => metric.metricCode === heightMetric)
+          ?.numberValue ?? 0;
+      const color = _.find(
+        node.metrics,
+        metric => metric.metricCode === colorMetric,
+      )?.colorValue ?? { hex: '#000000', display: 'unknown' };
+      return {
+        id: `${prefix}::${node.name}`,
+        area: _.toNumber(area),
+        height: _.toNumber(height),
+        color: new Color().setHex(Number(color.hex)),
+        name: node.name,
+        type: 'leaf',
+      };
+    };
+
+    const mapNode = (node: MetricsNodeDto, prefix?: string): TTreeNode => ({
+      name: node.name,
+      children: node.items.map(item =>
+        isLeaf(item)
+          ? mapLeaf(item, prefix ? `${prefix}.${node.name}` : node.name)
+          : mapNode(item, prefix ? `${prefix}.${node.name}` : node.name),
+      ),
+      type: 'node',
+    });
+    return commitData?.root ? mapNode(commitData?.root) : undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commitData]);
+
+  const findMethodData = (id?: string) => {
+    const goInto = (node: MetricsNodeDto, name: string) => {
+      for (const item of node.items) {
+        if (name.startsWith(item.name)) {
+          const next = name.replace(new RegExp(`^${item.name}(\\.|::)`), '');
+          if (isLeaf(item)) {
+            return item;
+          }
+          return goInto(item, next);
+        }
+      }
+    };
+
+    if (commitData?.root && id) {
+      return goInto(
+        commitData.root,
+        id.replace(new RegExp(`^${commitData.root.name}(\\.|::)`), ''),
+      );
+    }
+  };
+
   return (
-    <Canvas>
-      <Fullscreen>
-        <Container
-          padding={16}
-          width="100%"
-          height="100%"
-          flexDirection="column-reverse"
-        >
-          <PaginationPicker
-            currentPage={page}
-            setCurrentPage={setPage}
-            total={_.size(commits)}
-            itemRender={index => (
-              <Tooltip>
-                <TooltipTrigger>
-                  <Text>{commits[index].commit.hash}</Text>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <Text>{commits[index].commit.msg}</Text>
-                </TooltipContent>
-              </Tooltip>
-            )}
+    <>
+      <Layout style={{ height: '100%' }}>
+        <Sider width="25%">
+          <CommitTable
+            projectId={projectId}
+            branch={branch}
+            currentCommit={commitSha}
+            setCurrentCommit={setCommitSha}
+            onEachInPage={prefetchMetrics}
+            onEachInPrefetchedPage={prefetchMetrics}
+            isPlay={isPlay}
+            setIsPlay={setIsPlay}
           />
-          <CommitCard commit={commits[page].commit} />
-        </Container>
-      </Fullscreen>
-      <ambientLight intensity={Math.PI / 2} />
-      <spotLight
-        position={[10, 10, 10]}
-        angle={0.15}
-        penumbra={1}
-        decay={0}
-        intensity={Math.PI}
-      />
-      <pointLight position={[-10, -10, -10]} decay={0} intensity={Math.PI} />
-      <Plane position={[0, 0, 0]} />
-      <TreeMap position={[0, 0, 0]} tree={commits[page].tree} />
-      <Controls />
-    </Canvas>
+        </Sider>
+        <Layout>
+          <Content>
+            <Canvas>
+              <ambientLight intensity={Math.PI / 2} />
+              <pointLight position={[0, 20, 0]} decay={0} intensity={Math.PI} />
+              <Plane position={[0, 0, 0]} />
+              {tree && (
+                <TreeMap
+                  position={[0, 0, 0]}
+                  tree={tree}
+                  selected={selectedItem}
+                  setSelected={item => {
+                    setIsPlay(false);
+                    setSelectedItem(item);
+                  }}
+                />
+              )}
+              <Controls />
+              <OrthographicCamera position={[0, 20, 0]} />
+              <PerspectiveCamera makeDefault position={[0, 20, 0]} />
+            </Canvas>
+          </Content>
+        </Layout>
+      </Layout>
+      <Drawer
+        size="large"
+        open={!_.isNil(selectedItem)}
+        onClose={() => setSelectedItem(undefined)}
+        title={selectedItem}
+      >
+        <Descriptions
+          items={_.map(findMethodData(selectedItem)?.metrics, metric => ({
+            key: metric.metricCode,
+            label: _.find(metrics?.items, { metricCode: metric.metricCode })
+              ?.metricName,
+            children:
+              metric.numberValue ??
+              metric.stringValue ??
+              metric.colorValue?.display,
+          }))}
+        />
+      </Drawer>
+    </>
   );
 };

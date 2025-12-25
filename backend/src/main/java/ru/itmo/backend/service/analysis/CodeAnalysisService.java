@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import ru.itmo.backend.dto.response.analysis.*;
 import ru.itmo.backend.dto.response.commit.CommitDTO;
+import ru.itmo.backend.dto.response.reference.MetricDTO;
 import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.entity.ProjectInstanceEntity;
 import ru.itmo.backend.service.ProjectInstanceArbitrator;
@@ -16,6 +17,7 @@ import ru.itmo.backend.evaluator.MetricEvaluationException;
 import ru.itmo.backend.evaluator.MetricEvaluator;
 import ru.itmo.backend.evaluator.MetricEvaluators;
 import ru.itmo.backend.evaluator.model.ClassMetric;
+import ru.itmo.backend.service.reference.ReferenceProperties;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +27,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.ArrayList;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Service responsible for code analysis.
@@ -43,10 +47,13 @@ public class CodeAnalysisService {
     private final Random random = new Random();
     private final ProjectInstanceArbitrator arbitrator;
     private final GitClient gitClient;
+    private final ReferenceProperties referenceProperties;
 
-    public CodeAnalysisService(ProjectInstanceArbitrator arbitrator, GitClient gitClient) {
+
+    public CodeAnalysisService(ProjectInstanceArbitrator arbitrator, GitClient gitClient, ReferenceProperties referenceProperties) {
         this.arbitrator = arbitrator;
         this.gitClient = gitClient;
+        this.referenceProperties = referenceProperties;
     }
 
     /**
@@ -67,24 +74,42 @@ public class CodeAnalysisService {
             Map<String, ClassMetric> classMetrics = evaluator.evaluateMetrics(projectDir, e -> true, metrics);
             
             // Convert ClassMetric map to MetricsNodeDTO tree
-            MetricsNodeDTO root = convertClassMetricsToTree(classMetrics, metrics);
+            MetricsNodeDTO root = convertClassMetricsToTree(project, classMetrics, metrics);
             
             return new CommitMetricsDTO(commit, root);
         } finally {
             arbitrator.releaseInstance(instance.getId());
         }
     }
-    
+
+    private record Package(String name, Map<String, Package> packages, List<ClassMetricsNodeDTO> classes) {
+        PackageMetricsNodeDTO toNode() {
+            var packageNodes = packages.values().stream().map(Package::toNode).toList();
+            if (classes.isEmpty() && packageNodes.size() == 1) {
+                var inner = packageNodes.getFirst();
+                if (name.equals("<root>")) return inner;
+                return new PackageMetricsNodeDTO(name + "." + inner.name(), inner.items());
+            }
+            List<MetricsNodeDTO> nodes = new ArrayList<>();
+            nodes.addAll(packageNodes);
+            nodes.addAll(classes);
+            return new PackageMetricsNodeDTO(name, nodes);
+        }
+    };
     /**
      * Converts a map of ClassMetric to a MetricsNodeDTO tree structure.
      * Groups classes by package and creates a hierarchical structure.
      */
-    private MetricsNodeDTO convertClassMetricsToTree(Map<String, ClassMetric> classMetrics, List<String> requestedMetrics) {
+    private MetricsNodeDTO convertClassMetricsToTree(GitProjectEntity project, Map<String, ClassMetric> classMetrics, List<String> requestedMetrics) {
         if (classMetrics.isEmpty()) {
             // Return empty package if no classes found
             return new PackageMetricsNodeDTO("", List.of());
         }
-        
+
+        var metricsByCode = referenceProperties.getLanguages().stream()
+                .filter(lang -> lang.getLanguage().equals(project.getLanguageCode()))
+                .flatMap(lang -> lang.getMetrics().stream())
+                .collect(Collectors.toMap(ReferenceProperties.MetricConfig::getId, Function.identity()));
         // Group classes by package
         Map<String, List<ClassMetricsNodeDTO>> packageMap = new HashMap<>();
         
@@ -105,13 +130,32 @@ public class CodeAnalysisService {
                 .map(method -> {
                     List<MethodMetricDTO> methodMetrics = new ArrayList<>();
                     for (String metricCode : requestedMetrics) {
-                        String valueStr = method.own().get(metricCode);
-                        if (valueStr != null) {
-                            try {
-                                Double value = Double.parseDouble(valueStr);
-                                methodMetrics.add(new MethodMetricDTO(metricCode, value));
-                            } catch (NumberFormatException e) {
-                                log.warn("Could not parse metric value {} for metric {}: {}", valueStr, metricCode, e.getMessage());
+                        var metric = metricsByCode.get(metricCode);
+                        switch (metric.getType()) {
+                            case COLOR -> {
+                                if (metricCode.equals("PARAM_COLOR")) {
+                                    String valueStr = method.own().get("PARAM");
+                                    try {
+                                        String value = getColoredParam(valueStr);
+                                        methodMetrics.add(new MethodMetricDTO(metricCode, null, null,
+                                                new MethodMetricDTO.ColorValue(value, valueStr)));
+                                    } catch (NumberFormatException e) {
+                                        log.warn("Could not parse metric value {} for metric {}: {}", valueStr, metricCode, e.getMessage());
+                                    }
+                                }
+                            }
+                            case STRING -> {
+                                String value = method.own().get(metricCode);
+                                methodMetrics.add(new MethodMetricDTO(metricCode, value, null, null));
+                            }
+                            case NUMERIC -> {
+                                String valueStr = method.own().get(metricCode);
+                                try {
+                                    Integer value = Integer.parseInt(valueStr);
+                                    methodMetrics.add(new MethodMetricDTO(metricCode, null, value, null));
+                                } catch (NumberFormatException e) {
+                                    log.warn("Could not parse metric value {} for metric {}: {}", valueStr, metricCode, e.getMessage());
+                                }
                             }
                         }
                     }
@@ -124,31 +168,30 @@ public class CodeAnalysisService {
         }
         
         // Create package nodes
-        List<MetricsNodeDTO> packageNodes = new ArrayList<>();
+        Package root = new Package("<root>", new HashMap<>(), new ArrayList<>());
         for (Map.Entry<String, List<ClassMetricsNodeDTO>> entry : packageMap.entrySet()) {
             String packageName = entry.getKey();
-            List<ClassMetricsNodeDTO> classes = entry.getValue();
-            
-            if (packageName.isEmpty()) {
-                // If no package, add classes directly
-                packageNodes.addAll(classes);
-            } else {
-                // Create package node with classes
-                PackageMetricsNodeDTO packageNode = new PackageMetricsNodeDTO(
-                    packageName,
-                    new ArrayList<>(classes)
-                );
-                packageNodes.add(packageNode);
+            String[] steps = packageName.split("\\.");
+            Package currentPackage = root;
+            for (String step : steps) {
+                currentPackage = currentPackage.packages.computeIfAbsent(step, k -> new Package(k, new HashMap<>(), new ArrayList<>()));
             }
+            List<ClassMetricsNodeDTO> classes = entry.getValue();
+            currentPackage.classes.addAll(classes);
         }
-        
-        // If we have only one root package or no packages, return it directly
-        if (packageNodes.size() == 1) {
-            return packageNodes.get(0);
-        }
-        
-        // Otherwise, wrap in a root package
-        return new PackageMetricsNodeDTO("", packageNodes);
+
+        return root.toNode();
+    }
+
+    private static String getColoredParam(String valueStr) {
+        int valueInt = Integer.parseInt(valueStr);
+        return switch (valueInt) {
+            case 0 -> "0x34e8eb";
+            case 1 -> "0x64eb34";
+            case 2 -> "0xdeeb34";
+            case 3 -> "0xeb9b34";
+            default -> "0xeb3d34";
+        };
     }
 
     /**

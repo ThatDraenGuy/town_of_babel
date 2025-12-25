@@ -40,7 +40,7 @@ public class ReferenceService {
                                         m.getId(),
                                         m.getName(),
                                         m.getDescription(),
-                                        MetricDTO.MetricType.NUMERIC // Default to NUMERIC
+                                        m.getType()
                                 ))
                                 .collect(Collectors.toList())
                 ));

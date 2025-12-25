@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { Html } from '@react-three/drei';
 import type { ThreeElements } from '@react-three/fiber';
 import _ from 'lodash';
@@ -17,9 +19,23 @@ import { TreeLeaf } from './tree-leaf';
 type TProps = Omit<ThreeElements['mesh'], 'position'> & {
   position: [x: number, y: number, z: number];
   node: TPlacedTreeNode;
+  onEnter?: () => void;
+  onLeave?: () => void;
+  selected?: string;
+  setSelected: (id: string) => void;
 };
 
-export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
+export const TreeNode: React.FC<TProps> = ({
+  position,
+  node,
+  onEnter,
+  onLeave,
+  selected,
+  setSelected,
+  ...props
+}) => {
+  const [showLabel, setShowLabel] = useState(false);
+
   const padding =
     (node.dimensions[0] +
       node.dimensions[1] -
@@ -79,11 +95,31 @@ export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
           <TreeLeaf
             position={[-geometry[0] / 2, -geometry[1] / 2, -geometry[2] / 2]}
             leaf={child}
+            onEnter={() => {
+              setShowLabel(true);
+              onEnter?.();
+            }}
+            onLeave={() => {
+              setShowLabel(false);
+              onLeave?.();
+            }}
+            selected={selected}
+            setSelected={setSelected}
           />
         ) : (
           <TreeNode
             position={[-geometry[0] / 2, -geometry[1] / 2, -geometry[2] / 2]}
             node={child}
+            onEnter={() => {
+              setShowLabel(true);
+              onEnter?.();
+            }}
+            onLeave={() => {
+              setShowLabel(false);
+              onLeave?.();
+            }}
+            selected={selected}
+            setSelected={setSelected}
           />
         ),
       )}
@@ -93,9 +129,11 @@ export const TreeNode: React.FC<TProps> = ({ position, node, ...props }) => {
         inner={childrenBox}
         outer={fullBox}
       />
-      <Html center position={[0, -geometry[1] / 2 + 0.2, -geometry[2] / 2]}>
-        <span className="label">{node.name}</span>
-      </Html>
+      {showLabel && (
+        <Html center position={[0, -geometry[1] / 2 + 0.2, -geometry[2] / 2]}>
+          <span className="label">{node.name}</span>
+        </Html>
+      )}
     </mesh>
   );
 };
