@@ -14,6 +14,7 @@ import ru.itmo.backend.service.downloader.GitClient;
 import ru.itmo.backend.service.downloader.GitProjectService;
 import ru.itmo.backend.service.downloader.ProjectAccessService;
 import ru.itmo.backend.repo.ProjectInstanceRepository;
+import ru.itmo.backend.service.analysis.CodeAnalysisService;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,6 +41,7 @@ public class GitProjectServiceTest {
     private ProjectAccessService accessService;
     private ProjectInstanceRepository instanceRepository;
     private MetricsService metricsService;
+    private CodeAnalysisService codeAnalysisService;
 
     private GitProjectService service;
     private Path tempStorage;
@@ -51,7 +53,7 @@ public class GitProjectServiceTest {
      */
     private class TestableGitProjectService extends GitProjectService {
         public TestableGitProjectService() {
-            super(gitClient, fileManager, accessService, instanceRepository, metricsService, tempStorage.toString(), 24, 1024, 6);
+            super(gitClient, fileManager, accessService, instanceRepository, metricsService, codeAnalysisService, tempStorage.toString(), 24, 1024, 6);
         }
 
         @Override
@@ -67,6 +69,7 @@ public class GitProjectServiceTest {
         accessService = mock(ProjectAccessService.class);
         instanceRepository = mock(ProjectInstanceRepository.class);
         metricsService = mock(MetricsService.class);
+        codeAnalysisService = mock(CodeAnalysisService.class);
 
         tempStorage = Files.createTempDirectory("git-repo-test-");
         service = new TestableGitProjectService();

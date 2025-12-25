@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 @Schema(description = "Request to analyze a GitHub project/repository")
-public record ProjectUrlDTO(
+public record ProjectRequestDTO(
         @Schema(
                 description = "URL of the GitHub project",
                 example = "https://github.com/Olegshipu95/VT-Chat.git"

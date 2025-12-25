@@ -5,8 +5,6 @@ import org.eclipse.jgit.api.ListBranchCommand;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.itmo.backend.dto.response.commit.BranchDTO;
 import ru.itmo.backend.dto.response.commit.CommitDTO;
@@ -29,8 +27,6 @@ import java.util.stream.StreamSupport;
 @Service
 public class GitCommitService {
 
-    private static final Logger log = LoggerFactory.getLogger(GitCommitService.class);
-    
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int DEFAULT_PAGE = 0;
 
@@ -43,7 +39,7 @@ public class GitCommitService {
      * @return paginated branch DTOs
      * @throws Exception on Git errors
      */
-    public PageResponse<BranchDTO> listBranches(GitProjectEntity project, int page, int pageSize) throws Exception {
+    public List<BranchDTO> listBranches(GitProjectEntity project) throws Exception {
         Objects.requireNonNull(project, "project must not be null");
 
         File projectDir = new File(project.getLocalPath());
@@ -59,7 +55,7 @@ public class GitCommitService {
             List<Ref> refs = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call();
 
             // map to short names for frontend and remove duplicates
-            List<BranchDTO> allBranches = refs.stream()
+            return refs.stream()
                     .map(ref -> {
                         String fullName = ref.getName();
                         String shortName;
@@ -74,14 +70,21 @@ public class GitCommitService {
                         return new BranchDTO(shortName, latestSha);
                     })
                     // remove duplicates (e.g., local master and remote master)
-                    .collect(Collectors.toMap(BranchDTO::name, b -> b, (b1, b2) -> b1))
+                    .collect(Collectors.toMap(BranchDTO::branchName, b -> b, (b1, b2) -> b1))
                     .values()
                     .stream()
-                    .sorted(Comparator.comparing(BranchDTO::name))
+                    .sorted(Comparator.comparing(BranchDTO::branchName))
                     .collect(Collectors.toList());
-
-            return paginate(allBranches, page, pageSize, BranchDTO.class);
         }
+    }
+
+    /**
+     * Gets a specific branch by name.
+     */
+    public Optional<BranchDTO> getBranch(GitProjectEntity project, String branchName) throws Exception {
+        return listBranches(project).stream()
+                .filter(b -> b.branchName().equals(branchName))
+                .findFirst();
     }
 
     /**
@@ -137,17 +140,31 @@ public class GitCommitService {
             List<RevCommit> allCommits = StreamSupport.stream(commitsIterable.spliterator(), false)
                     .toList();
 
-            List<CommitDTO> allCommitDTOs = allCommits.stream()
-                    .map(c -> new CommitDTO(
-                            c.getName(),
-                            c.getFullMessage(),
-                            c.getAuthorIdent() != null ? c.getAuthorIdent().getName() : null,
-                            ((long) c.getCommitTime()) * 1000L
-                    ))
-                    .collect(Collectors.toList());
+            int totalCount = allCommits.size();
+            List<CommitDTO> allCommitDTOs = new ArrayList<>();
+            for (int i = 0; i < totalCount; i++) {
+                RevCommit c = allCommits.get(i);
+                allCommitDTOs.add(new CommitDTO(
+                        c.getName(),
+                        c.getFullMessage(),
+                        c.getAuthorIdent() != null ? c.getAuthorIdent().getName() : null,
+                        ((long) c.getCommitTime()) * 1000L,
+                        totalCount - i // Commit number (1-based, descending)
+                ));
+            }
 
             return paginate(allCommitDTOs, page, pageSize, CommitDTO.class);
         }
+    }
+
+    /**
+     * Gets a specific commit by SHA.
+     */
+    public Optional<CommitDTO> getCommit(GitProjectEntity project, String branch, String sha) throws Exception {
+        // This is a simple implementation, might need optimization if many commits
+        return listCommits(project, branch, 0, Integer.MAX_VALUE).items().stream()
+                .filter(c -> c.sha().equals(sha))
+                .findFirst();
     }
 
     /**

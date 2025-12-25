@@ -1,26 +1,30 @@
 package ru.itmo.backend.service.analysis;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.util.Predicates;
 import org.springframework.stereotype.Service;
 
-import ru.itmo.backend.service.ProjectInstanceArbitrator;
+import ru.itmo.backend.dto.response.analysis.*;
+import ru.itmo.backend.dto.response.commit.CommitDTO;
+import ru.itmo.backend.entity.GitProjectEntity;
 import ru.itmo.backend.entity.ProjectInstanceEntity;
+import ru.itmo.backend.service.ProjectInstanceArbitrator;
 import ru.itmo.backend.service.downloader.GitClient;
+import ru.itmo.backend.evaluator.MetricEvaluationException;
+import ru.itmo.backend.evaluator.MetricEvaluator;
+import ru.itmo.backend.evaluator.MetricEvaluators;
+import ru.itmo.backend.evaluator.model.ClassMetric;
+
 import java.io.File;
 import java.io.IOException;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
+import java.util.ArrayList;
 
 /**
  * Service responsible for code analysis.
@@ -43,6 +47,108 @@ public class CodeAnalysisService {
     public CodeAnalysisService(ProjectInstanceArbitrator arbitrator, GitClient gitClient) {
         this.arbitrator = arbitrator;
         this.gitClient = gitClient;
+    }
+
+    /**
+     * Returns metrics for a specific commit.
+     */
+    public CommitMetricsDTO getCommitMetrics(GitProjectEntity project, CommitDTO commit, List<String> metrics) throws Exception {
+        ProjectInstanceEntity instance = arbitrator.acquireInstance(project.getId());
+        try {
+            File projectDir = new File(instance.getLocalPath());
+            gitClient.checkout(projectDir, commit.sha());
+            log.info("Analyzing commit {} of project {} using instance {}", commit.sha(), project.getId(), instance.getId());
+            
+            // Determine language - use project language or default to Java
+            String languageName = project.getLanguageCode() != null ? project.getLanguageCode() : "Java";
+            MetricEvaluators.Language language = MetricEvaluators.Language.ofName(languageName);
+            MetricEvaluator evaluator = MetricEvaluators.forLanguage(language);
+            
+            Map<String, ClassMetric> classMetrics = evaluator.evaluateMetrics(projectDir, e -> true, metrics);
+            
+            // Convert ClassMetric map to MetricsNodeDTO tree
+            MetricsNodeDTO root = convertClassMetricsToTree(classMetrics, metrics);
+            
+            return new CommitMetricsDTO(commit, root);
+        } finally {
+            arbitrator.releaseInstance(instance.getId());
+        }
+    }
+    
+    /**
+     * Converts a map of ClassMetric to a MetricsNodeDTO tree structure.
+     * Groups classes by package and creates a hierarchical structure.
+     */
+    private MetricsNodeDTO convertClassMetricsToTree(Map<String, ClassMetric> classMetrics, List<String> requestedMetrics) {
+        if (classMetrics.isEmpty()) {
+            // Return empty package if no classes found
+            return new PackageMetricsNodeDTO("", List.of());
+        }
+        
+        // Group classes by package
+        Map<String, List<ClassMetricsNodeDTO>> packageMap = new HashMap<>();
+        
+        for (ClassMetric classMetric : classMetrics.values()) {
+            String className = classMetric.name();
+            String packageName = "";
+            String simpleClassName = className;
+            
+            // Extract package name from fully qualified class name
+            int lastDot = className.lastIndexOf('.');
+            if (lastDot >= 0) {
+                packageName = className.substring(0, lastDot);
+                simpleClassName = className.substring(lastDot + 1);
+            }
+            
+            // Convert methods to MethodMetricsNodeDTO
+            List<MethodMetricsNodeDTO> methodNodes = classMetric.methods().values().stream()
+                .map(method -> {
+                    List<MethodMetricDTO> methodMetrics = new ArrayList<>();
+                    for (String metricCode : requestedMetrics) {
+                        String valueStr = method.own().get(metricCode);
+                        if (valueStr != null) {
+                            try {
+                                Double value = Double.parseDouble(valueStr);
+                                methodMetrics.add(new MethodMetricDTO(metricCode, value));
+                            } catch (NumberFormatException e) {
+                                log.warn("Could not parse metric value {} for metric {}: {}", valueStr, metricCode, e.getMessage());
+                            }
+                        }
+                    }
+                    return new MethodMetricsNodeDTO(method.name(), methodMetrics);
+                })
+                .toList();
+            
+            ClassMetricsNodeDTO classNode = new ClassMetricsNodeDTO(simpleClassName, methodNodes);
+            packageMap.computeIfAbsent(packageName, k -> new ArrayList<>()).add(classNode);
+        }
+        
+        // Create package nodes
+        List<MetricsNodeDTO> packageNodes = new ArrayList<>();
+        for (Map.Entry<String, List<ClassMetricsNodeDTO>> entry : packageMap.entrySet()) {
+            String packageName = entry.getKey();
+            List<ClassMetricsNodeDTO> classes = entry.getValue();
+            
+            if (packageName.isEmpty()) {
+                // If no package, add classes directly
+                packageNodes.addAll(classes);
+            } else {
+                // Create package node with classes
+                PackageMetricsNodeDTO packageNode = new PackageMetricsNodeDTO(
+                    packageName,
+                    new ArrayList<>(classes)
+                );
+                packageNodes.add(packageNode);
+            }
+        }
+        
+        // If we have only one root package or no packages, return it directly
+        if (packageNodes.size() == 1) {
+            return packageNodes.get(0);
+        }
+        
+        // Otherwise, wrap in a root package
+        return new PackageMetricsNodeDTO("", packageNodes);
     }
 
     /**
@@ -113,20 +219,18 @@ public class CodeAnalysisService {
      * @param languages list of languages to analyse
      * @return map of analysis metrics
      */
-    public String analyzeProject(File projectDir, List<String> languages) throws IOException {
-        log.info("Stub analysis of project at path: {}", projectDir.getAbsolutePath());
+    public String analyzeProject(File projectDir, List<String> languages) throws MetricEvaluationException, IOException {
+        log.info("Analyzing project at path: {}", projectDir.getAbsolutePath());
 
-        // Returning stub data to keep tests passing without external tools like lizard
-        Map<String, Object> stubMetrics = new HashMap<>();
-        for (String lang : languages) {
-            stubMetrics.put(lang, Map.of(
-                "NLOC", 100 + random.nextInt(1000),
-                "Complexity", 5 + random.nextInt(20),
-                "Files", 10 + random.nextInt(50)
-            ));
+        Map<String, Map<String, ClassMetric>> metrics = new HashMap<>();
+
+        for (String languageName : languages) {
+            MetricEvaluators.Language language = MetricEvaluators.Language.ofName(languageName);
+            MetricEvaluator evaluator = MetricEvaluators.forLanguage(language);
+            metrics.put(languageName, evaluator.evaluateMetrics(projectDir, e -> true, METRICS_LIST));
         }
 
-        return MAPPER.writeValueAsString(stubMetrics);
+        return MAPPER.writeValueAsString(metrics);
     }
 
 
@@ -138,10 +242,31 @@ public class CodeAnalysisService {
      * @param branchName branch name to analyze
      * @return map of analysis metrics
      */
-    public Map<String, Object> analyzeBranch(File projectDir, String branchName) {
-        log.info("Stub analysis of branch '{}' in project at path: {}", branchName, projectDir.getAbsolutePath());
-
-        return Map.of("branch", branchName, "total_files", 50 + random.nextInt(20), "java_lines", 300 + random.nextInt(50), "methods_count", 10 + random.nextInt(5), "classes_count", 5 + random.nextInt(5));
+    public Map<String, Object> analyzeBranch(File projectDir, String branchName) throws MetricEvaluationException, IOException {
+        log.info("Analyzing branch '{}' in project at path: {}", branchName, projectDir.getAbsolutePath());
+        
+        // Try to determine language - default to Java if unknown
+        String languageName = "Java";
+        try {
+            MetricEvaluators.Language language = MetricEvaluators.Language.ofName(languageName);
+            MetricEvaluator evaluator = MetricEvaluators.forLanguage(language);
+            Map<String, ClassMetric> metrics = evaluator.evaluateMetrics(projectDir, e -> true, METRICS_LIST);
+            
+            int totalFiles = metrics.size();
+            int totalMethods = metrics.values().stream()
+                .mapToInt(c -> c.methods().size())
+                .sum();
+            
+            return Map.of(
+                "branch", branchName,
+                "total_files", totalFiles,
+                "classes_count", totalFiles,
+                "methods_count", totalMethods
+            );
+        } catch (MetricEvaluationException e) {
+            log.warn("Failed to analyze branch {}: {}", branchName, e.getMessage());
+            throw e;
+        }
     }
 
     /**
@@ -170,10 +295,31 @@ public class CodeAnalysisService {
      * @param commitSha  SHA of the commit to analyze
      * @return map of analysis metrics
      */
-    public Map<String, Object> analyzeCommit(File projectDir, String commitSha) {
-        log.info("Stub analysis of commit '{}' in project at path: {}", commitSha, projectDir.getAbsolutePath());
-
-        return Map.of("commit_sha", commitSha, "total_files", 45 + random.nextInt(20), "java_lines", 280 + random.nextInt(60), "methods_count", 8 + random.nextInt(6), "classes_count", 4 + random.nextInt(5));
+    public Map<String, Object> analyzeCommit(File projectDir, String commitSha) throws MetricEvaluationException, IOException {
+        log.info("Analyzing commit '{}' in project at path: {}", commitSha, projectDir.getAbsolutePath());
+        
+        // Try to determine language - default to Java if unknown
+        String languageName = "Java";
+        try {
+            MetricEvaluators.Language language = MetricEvaluators.Language.ofName(languageName);
+            MetricEvaluator evaluator = MetricEvaluators.forLanguage(language);
+            Map<String, ClassMetric> metrics = evaluator.evaluateMetrics(projectDir, e -> true, METRICS_LIST);
+            
+            int totalFiles = metrics.size();
+            int totalMethods = metrics.values().stream()
+                .mapToInt(c -> c.methods().size())
+                .sum();
+            
+            return Map.of(
+                "commit_sha", commitSha,
+                "total_files", totalFiles,
+                "classes_count", totalFiles,
+                "methods_count", totalMethods
+            );
+        } catch (MetricEvaluationException e) {
+            log.warn("Failed to analyze commit {}: {}", commitSha, e.getMessage());
+            throw e;
+        }
     }
 
     /**
