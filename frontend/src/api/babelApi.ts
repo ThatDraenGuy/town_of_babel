@@ -163,9 +163,15 @@ export type PackageMetricsNodeDto = {
   name: string;
   items: MetricsNodeDto[];
 };
+export type ColorValueDto = {
+  hex: string;
+  display: string;
+};
 export type MethodMetricDto = {
   metricCode: string;
-  value: number;
+  numberValue?: number;
+  stringValue?: string;
+  colorValue?: ColorValueDto;
 };
 export type MethodMetricsNodeDto = {
   name: string;
@@ -193,7 +199,7 @@ export type MetricDto = {
   metricName: string;
   /** Detailed description of what the metric measures */
   metricDescription: string;
-  metricType: 'NUMERIC' | 'COLOR';
+  metricType: 'NUMERIC' | 'STRING' | 'COLOR';
 };
 export type LanguageMetricsResponseDto = {
   /** List of available metrics for the language */

@@ -6,7 +6,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record MethodMetricDTO(
         @Schema(description = "Unique metric identifier")
         String metricCode,
-        @Schema(description = "Metric value")
-        Double value
-) {}
+        String stringValue,
+        Integer numberValue,
+        ColorValue colorValue
+) {
+    public record ColorValue(
+            String hex,
+            String display
+    ) {}
+}
 

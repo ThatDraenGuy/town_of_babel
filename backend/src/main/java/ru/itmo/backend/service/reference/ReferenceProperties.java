@@ -1,7 +1,10 @@
 package ru.itmo.backend.service.reference;
 
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import ru.itmo.backend.dto.response.reference.MetricDTO;
+
 import java.util.List;
 
 @Component
@@ -20,65 +23,18 @@ public class ReferenceProperties {
         this.languages = languages;
     }
 
+    @Data
     public static class LanguageConfig
     {
         private String language;
         private List<MetricConfig> metrics;
-
-        public String getLanguage()
-        {
-            return language;
-        }
-
-        public void setLanguage(String language)
-        {
-            this.language = language;
-        }
-
-        public List<MetricConfig> getMetrics()
-        {
-            return metrics;
-        }
-
-        public void setMetrics(List<MetricConfig> metrics)
-        {
-            this.metrics = metrics;
-        }
     }
 
+    @Data
     public static class MetricConfig {
         private String id;
         private String name;
         private String description;
-
-        public String getId()
-        {
-            return id;
-        }
-
-        public void setId(String id)
-        {
-            this.id = id;
-        }
-
-        public String getName()
-        {
-            return name;
-        }
-
-        public void setName(String name)
-        {
-            this.name = name;
-        }
-
-        public String getDescription()
-        {
-            return description;
-        }
-
-        public void setDescription(String description)
-        {
-            this.description = description;
-        }
+        private MetricDTO.MetricType type;
     }
 }

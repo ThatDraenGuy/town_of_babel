@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import ru.itmo.backend.entity.ProjectInstanceEntity;
 import ru.itmo.backend.service.ProjectInstanceArbitrator;
 import ru.itmo.backend.service.downloader.GitClient;
+import ru.itmo.backend.service.reference.ReferenceProperties;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -18,6 +19,7 @@ public class CodeAnalysisServiceTest {
 
     private ProjectInstanceArbitrator arbitrator;
     private GitClient gitClient;
+    private ReferenceProperties props;
     private CodeAnalysisService service;
     private Path tempRepo;
 
@@ -25,7 +27,8 @@ public class CodeAnalysisServiceTest {
     void setup() throws Exception {
         arbitrator = mock(ProjectInstanceArbitrator.class);
         gitClient = mock(GitClient.class);
-        service = new CodeAnalysisService(arbitrator, gitClient);
+        props = mock(ReferenceProperties.class);
+        service = new CodeAnalysisService(arbitrator, gitClient, props);
         tempRepo = Files.createTempDirectory("test-repo");
     }
 

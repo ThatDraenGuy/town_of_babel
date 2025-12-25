@@ -15,6 +15,8 @@ interface TProps {
   setCurrentCommit: (sha?: string) => void;
   onEachInPage: (commit: CommitDto) => void;
   onEachInPrefetchedPage: (commit: CommitDto) => void;
+  isPlay: boolean;
+  setIsPlay: (value: boolean) => void;
 }
 
 const pageSize = 5;
@@ -26,9 +28,11 @@ export const CommitTable: React.FC<TProps> = ({
   setCurrentCommit,
   onEachInPage,
   onEachInPrefetchedPage,
+  isPlay,
+  setIsPlay,
 }) => {
   const [page, setPage] = useState(0);
-  const [isPlay, setIsPlay] = useState(false);
+
   const [speed, setSpeed] = useState(1);
 
   const { data: commits, isLoading: isLoadingCommits } =

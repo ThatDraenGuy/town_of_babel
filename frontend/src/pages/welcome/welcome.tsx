@@ -180,10 +180,7 @@ export const WelcomePage: React.FC = () => {
               <Select
                 loading={isLoadingMetrics}
                 options={_.map(
-                  _.filter(
-                    metrics?.items,
-                    item => item.metricType === 'NUMERIC',
-                  ),
+                  _.filter(metrics?.items, item => item.metricType === 'COLOR'),
                   metric => ({
                     label: metric.metricName,
                     value: metric.metricCode,

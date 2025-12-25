@@ -346,16 +346,30 @@ components:
           required:
             - items
 
+    ColorValueDTO:
+      type: object
+      properties:
+        hex:
+          type: string
+        display:
+          type: string
+      required:
+        - hex
+        - display
+
     MethodMetricDTO:
       type: object
       properties:
         metricCode:
           type: string
-        value:
+        numberValue:
           type: number
+        stringValue:
+          type: string
+        colorValue:
+          $ref: '#/components/schemas/ColorValueDTO'
       required:
         - metricCode
-        - value
 
     MethodMetricsNodeDTO:
       type: object
@@ -460,6 +474,7 @@ components:
           type: string
           enum:
             - NUMERIC
+            - STRING
             - COLOR
       required:
         - metricCode

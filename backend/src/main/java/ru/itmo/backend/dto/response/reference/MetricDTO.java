@@ -20,6 +20,7 @@ public record MetricDTO(
 ) {
     public enum MetricType {
         NUMERIC,
+        STRING,
         COLOR
     }
 }

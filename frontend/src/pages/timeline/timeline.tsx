@@ -49,6 +49,7 @@ export const TimelinePage: React.FC = () => {
   const colorMetric = searchParams.get('color') ?? '';
 
   const [commitSha, setCommitSha] = useState<string>();
+  const [isPlay, setIsPlay] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string>();
 
   const { data: metrics } = babelApi.useGetMetricsQuery(
@@ -87,18 +88,19 @@ export const TimelinePage: React.FC = () => {
     ): TTreeLeaf => {
       const area =
         _.find(node.metrics, metric => metric.metricCode === areaMetric)
-          ?.value ?? 0;
+          ?.numberValue ?? 0;
       const height =
         _.find(node.metrics, metric => metric.metricCode === heightMetric)
-          ?.value ?? 0;
-      const color =
-        _.find(node.metrics, metric => metric.metricCode === colorMetric)
-          ?.value ?? 0;
+          ?.numberValue ?? 0;
+      const color = _.find(
+        node.metrics,
+        metric => metric.metricCode === colorMetric,
+      )?.colorValue ?? { hex: '#000000', display: 'unknown' };
       return {
         id: `${prefix}::${node.name}`,
-        area,
-        height,
-        color: Color.NAMES.green,
+        area: _.toNumber(area),
+        height: _.toNumber(height),
+        color: new Color().setHex(Number(color.hex)),
         name: node.name,
         type: 'leaf',
       };
@@ -148,6 +150,8 @@ export const TimelinePage: React.FC = () => {
             setCurrentCommit={setCommitSha}
             onEachInPage={prefetchMetrics}
             onEachInPrefetchedPage={prefetchMetrics}
+            isPlay={isPlay}
+            setIsPlay={setIsPlay}
           />
         </Sider>
         <Layout>
@@ -161,7 +165,10 @@ export const TimelinePage: React.FC = () => {
                   position={[0, 0, 0]}
                   tree={tree}
                   selected={selectedItem}
-                  setSelected={setSelectedItem}
+                  setSelected={item => {
+                    setIsPlay(false);
+                    setSelectedItem(item);
+                  }}
                 />
               )}
               <Controls />
@@ -182,7 +189,10 @@ export const TimelinePage: React.FC = () => {
             key: metric.metricCode,
             label: _.find(metrics?.items, { metricCode: metric.metricCode })
               ?.metricName,
-            children: metric.value,
+            children:
+              metric.numberValue ??
+              metric.stringValue ??
+              metric.colorValue?.display,
           }))}
         />
       </Drawer>
