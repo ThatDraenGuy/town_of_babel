@@ -1,5 +1,6 @@
 package ru.itmo.backend.evaluator;
 
+import ru.itmo.backend.evaluator.evaluators.CSharpMetricsEvaluator;
 import ru.itmo.backend.evaluator.evaluators.CxxMetricsEvaluator;
 import ru.itmo.backend.evaluator.evaluators.JavaMetricEvaluator;
 
@@ -11,13 +12,14 @@ public class MetricEvaluators {
         return switch (languageName) {
             case CXX -> new CxxMetricsEvaluator();
             case JAVA -> new JavaMetricEvaluator();
+            case CSHARP -> new CSharpMetricsEvaluator();
             default ->
                     throw new MetricEvaluationException("No evaluator found for language" + languageName);
         };
     }
 
     public enum Language {
-        CXX, JAVA, GO, PYTHON; // TODO: add other languages
+        CXX, JAVA, CSHARP; // TODO: add other languages
 
         private static final List<String> CXX_NAMES = List.of("C++", "c++", "CXX", "cxx", "Cxx");
         private static final List<String> JAVA_NAMES = List.of("Java", "java");
