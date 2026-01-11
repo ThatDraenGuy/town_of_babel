@@ -32,7 +32,7 @@ class LizardRunnerTest {
 
             Assertions.assertEquals(5, csv.size());
             for (var line : csv.entrySet()) {
-                Assertions.assertEquals(LizardRunner.LizardFields.ALL_FIELDS.length, line.getValue().size());
+                Assertions.assertEquals(LizardRunner.LizardFields.NATIVE_FIELDS.size(), line.getValue().size());
             }
         } catch (Exception e) {
             Assertions.fail(e);

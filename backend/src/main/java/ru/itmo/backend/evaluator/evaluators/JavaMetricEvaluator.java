@@ -80,7 +80,7 @@ public class JavaMetricEvaluator implements MetricEvaluator {
 
         return "<default>";
     }
-    private record ClassMethod(String className, String methodName) {
+    private record ClassMethod(String packageName, String className, String simpleClassName, String methodName) {
     }
 
     private ClassMethod parseMethodName(String methodName, Map<String, String> metrics) throws MetricEvaluationException {
@@ -88,9 +88,8 @@ public class JavaMetricEvaluator implements MetricEvaluator {
         String packageName = getPackageName(sourceFileName);
         String[] parts = methodName.split("::");
         String simpleMethodName = parts[parts.length - 1];
-        String simpleClassName = packageName + "." + (parts.length == 1 ? "<unnamed>" : parts[0]);
-//        String simpleClassName = packageName + "." + methodName.substring(0, methodName.length() - simpleMethodName.length() - "::".length());
-        return new ClassMethod(simpleClassName, simpleMethodName);
+        String fullClassName = packageName + "." + (parts.length == 1 ? "<unnamed>" : parts[0]);
+        return new ClassMethod(packageName, fullClassName, parts[0], simpleMethodName);
     }
 
     Map<String, ClassMetric> lizardOutputToJavaMetrics(Map<String, Map<String, String>> methods) throws MetricEvaluationException {
@@ -98,15 +97,24 @@ public class JavaMetricEvaluator implements MetricEvaluator {
 
         for (var entry : methods.entrySet()) {
             ClassMethod raw = parseMethodName(entry.getKey(), entry.getValue());
-            ClassMetric classMetric = result.getOrDefault(raw.className, new ClassMetric(raw.className));
+
+            if (!result.containsKey(raw.className)) {
+                ClassMetric classMetric = new ClassMetric(raw.className);
+                classMetric.own().put("PACKAGE_NAME", raw.packageName);
+                classMetric.own().put("SIMPLE_NAME", raw.simpleClassName);
+                result.put(raw.className, classMetric);
+            }
+
+            ClassMetric classMetric = result.get(raw.className);
             classMetric.methods().put(raw.methodName, new MethodMetric(raw.methodName, LizardRunner.LizardFields.filterMetrics(entry.getValue())));
             result.put(raw.className, classMetric);
         }
+
         return result;
     }
 
     @Override
-    public Map<String, ClassMetric> evaluateMetrics(File repository, Predicate<Path> filesFilter, List<String> metrics) throws MetricEvaluationException {
+    public Map<String, ClassMetric> evaluateMetrics(File repository, Predicate<Path> filesFilter, List<String> metrics, MetricEvaluationContext context) throws MetricEvaluationException {
         Predicate<Path> filter = FilesUtils.haveExtension(JAVA_EXTENSIONS).and(filesFilter);
         List<Path> filesToProcess = null;
 
@@ -117,6 +125,9 @@ public class JavaMetricEvaluator implements MetricEvaluator {
         }
 
         var lizardOutput = LizardRunner.runLizard("java", filesToProcess);
+        if (context.repoUrl() != null) {
+            LizardRunner.generateGithubLocations(lizardOutput, context.repoUrl());
+        }
         return lizardOutputToJavaMetrics(lizardOutput);
     }
 }

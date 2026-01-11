@@ -10,5 +10,14 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 public interface MetricEvaluator {
-    public Map<String, ClassMetric> evaluateMetrics(File repository, Predicate<Path> filesFilter, List<String> metrics) throws IOException, MetricEvaluationException;
+    static public record MetricEvaluationContext (String repoUrl) {
+        MetricEvaluationContext() {
+            this(null);
+        }
+    };
+
+    public Map<String, ClassMetric> evaluateMetrics(File repository, Predicate<Path> filesFilter, List<String> metrics, MetricEvaluationContext context) throws IOException, MetricEvaluationException;
+     default Map<String, ClassMetric> evaluateMetrics(File repository, Predicate<Path> filesFilter, List<String> metrics) throws IOException, MetricEvaluationException {
+        return evaluateMetrics(repository, filesFilter, metrics, new MetricEvaluationContext());
+    }
 }

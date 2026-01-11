@@ -18,7 +18,7 @@ public class CxxMetricsEvaluator implements MetricEvaluator {
     private static final List<String> CXX_EXTENSIONS = Arrays.asList(".cpp", ".cc", ".cxx", ".c++", ".C", ".h", ".hpp", ".hh", ".hxx", ".h++");
 
     @Override
-    public Map<String, ClassMetric> evaluateMetrics(File repository, Predicate<Path> filesFilter, List<String> metrics) throws IOException, MetricEvaluationException {
+    public Map<String, ClassMetric> evaluateMetrics(File repository, Predicate<Path> filesFilter, List<String> metrics, MetricEvaluationContext context) throws IOException, MetricEvaluationException {
         Predicate<Path> filter = FilesUtils.haveExtension(CXX_EXTENSIONS).and(filesFilter);
         List<Path> files = FilesUtils.collectPaths(repository, filter);
         var methods = LizardRunner.runLizard("cpp", files);

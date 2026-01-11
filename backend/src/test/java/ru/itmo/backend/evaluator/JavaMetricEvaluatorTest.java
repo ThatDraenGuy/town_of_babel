@@ -39,12 +39,11 @@ class JavaMetricEvaluatorTest {
             File repo = new File("src/test/test-data/java/SmokeTest/");
             JavaMetricEvaluator evaluator = new JavaMetricEvaluator();
             var metrics = evaluator.evaluateMetrics(repo, path -> true, List.of());
-
             Assertions.assertTrue(metrics.containsKey("test.test.a.A"));
             ClassMetric aMetric = metrics.get("test.test.a.A");
             Assertions.assertEquals(2, aMetric.methods().size());
             Assertions.assertEquals("5", aMetric.methods().get("foo").own().get("CCN"));
-        } catch (MetricEvaluationException e) {
+        } catch (MetricEvaluationException | IOException e) {
             Assertions.fail(e);
         }
     }
