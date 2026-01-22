@@ -59,7 +59,7 @@ public class CodeAnalysisServiceTest {
 
         when(arbitrator.acquireInstance(projectId)).thenReturn(instance);
 
-        Map<String, Object> result = service.analyzeCommit(projectId, commitSha);
+        Map<String, Object> result = service.analyzeCommit(projectId, null, commitSha);
 
         assertNotNull(result);
         assertEquals(commitSha, result.get("commit_sha"));
@@ -86,4 +86,3 @@ public class CodeAnalysisServiceTest {
         verify(arbitrator).releaseInstance(10L);
     }
 }
-

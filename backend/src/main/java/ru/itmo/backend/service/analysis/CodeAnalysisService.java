@@ -70,8 +70,9 @@ public class CodeAnalysisService {
             String languageName = project.getLanguageCode() != null ? project.getLanguageCode() : "Java";
             MetricEvaluators.Language language = MetricEvaluators.Language.ofName(languageName);
             MetricEvaluator evaluator = MetricEvaluators.forLanguage(language);
-            
-            Map<String, ClassMetric> classMetrics = evaluator.evaluateMetrics(projectDir, e -> true, metrics);
+
+            MetricEvaluator.MetricEvaluationContext ctx = new MetricEvaluator.MetricEvaluationContext(project.getUrl());
+            Map<String, ClassMetric> classMetrics = evaluator.evaluateMetrics(projectDir, e -> true, metrics, ctx);
             
             // Convert ClassMetric map to MetricsNodeDTO tree
             MetricsNodeDTO root = convertClassMetricsToTree(project, classMetrics, metrics);
@@ -115,15 +116,15 @@ public class CodeAnalysisService {
         
         for (ClassMetric classMetric : classMetrics.values()) {
             String className = classMetric.name();
-            String packageName = "";
-            String simpleClassName = className;
+            String packageName = classMetric.own().get("PACKAGE_NAME");
+            String simpleClassName = classMetric.own().get("SIMPLE_NAME");
             
             // Extract package name from fully qualified class name
-            int lastDot = className.lastIndexOf('.');
-            if (lastDot >= 0) {
-                packageName = className.substring(0, lastDot);
-                simpleClassName = className.substring(lastDot + 1);
-            }
+//            int lastDot = className.lastIndexOf('.');
+//            if (lastDot >= 0) {
+//                packageName = className.substring(0, lastDot);
+//                simpleClassName = className.substring(lastDot + 1);
+//            }
             
             // Convert methods to MethodMetricsNodeDTO
             List<MethodMetricsNodeDTO> methodNodes = classMetric.methods().values().stream()
@@ -285,7 +286,7 @@ public class CodeAnalysisService {
      * @param branchName branch name to analyze
      * @return map of analysis metrics
      */
-    public Map<String, Object> analyzeBranch(File projectDir, String branchName) throws MetricEvaluationException, IOException {
+    public Map<String, Object> analyzeBranch(File projectDir, GitProjectEntity entity, String branchName) throws MetricEvaluationException, IOException {
         log.info("Analyzing branch '{}' in project at path: {}", branchName, projectDir.getAbsolutePath());
         
         // Try to determine language - default to Java if unknown
@@ -319,13 +320,13 @@ public class CodeAnalysisService {
      * @param commitSha SHA of the commit to analyze
      * @return map of analysis metrics
      */
-    public Map<String, Object> analyzeCommit(Long projectId, String commitSha) throws Exception {
+    public Map<String, Object> analyzeCommit(Long projectId, GitProjectEntity entity, String commitSha) throws Exception {
         ProjectInstanceEntity instance = arbitrator.acquireInstance(projectId);
         try {
             File projectDir = new File(instance.getLocalPath());
             gitClient.checkout(projectDir, commitSha);
             log.info("Analyzing commit {} of project {} using instance {}", commitSha, projectId, instance.getId());
-            return analyzeCommit(projectDir, commitSha);
+            return analyzeCommit(projectDir, entity, commitSha);
         } finally {
             arbitrator.releaseInstance(instance.getId());
         }
@@ -338,7 +339,7 @@ public class CodeAnalysisService {
      * @param commitSha  SHA of the commit to analyze
      * @return map of analysis metrics
      */
-    public Map<String, Object> analyzeCommit(File projectDir, String commitSha) throws MetricEvaluationException, IOException {
+    public Map<String, Object> analyzeCommit(File projectDir, GitProjectEntity entity, String commitSha) throws MetricEvaluationException, IOException {
         log.info("Analyzing commit '{}' in project at path: {}", commitSha, projectDir.getAbsolutePath());
         
         // Try to determine language - default to Java if unknown
