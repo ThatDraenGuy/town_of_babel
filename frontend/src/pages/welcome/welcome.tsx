@@ -89,7 +89,7 @@ export const WelcomePage: React.FC = () => {
             : [
                 <Button
                   onClick={() =>
-                    setProject({ project: undefined, url: undefined })
+                    dispatch(setProject({ project: undefined, url: undefined }))
                   }
                 >
                   Back

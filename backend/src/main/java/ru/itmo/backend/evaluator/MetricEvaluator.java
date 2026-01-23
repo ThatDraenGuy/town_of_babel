@@ -10,9 +10,9 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 public interface MetricEvaluator {
-    static public record MetricEvaluationContext (String repoUrl) {
+    static public record MetricEvaluationContext (String repoUrl, String commitSha) {
         MetricEvaluationContext() {
-            this(null);
+            this(null, null);
         }
     };
 

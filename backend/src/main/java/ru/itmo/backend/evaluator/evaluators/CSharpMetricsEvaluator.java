@@ -65,7 +65,7 @@ public class CSharpMetricsEvaluator implements MetricEvaluator {
         var lizardOutput = LizardRunner.runLizard("csharp", files);
 
         if (context.repoUrl() != null) {
-            LizardRunner.generateGithubLocations(lizardOutput, context.repoUrl());
+            LizardRunner.generateGithubLocations(repository.getPath(), lizardOutput, context.repoUrl(), context.commitSha());
         }
 
         return lizardOutputToCSharpMetrics(lizardOutput);

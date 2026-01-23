@@ -71,7 +71,7 @@ public class CodeAnalysisService {
             MetricEvaluators.Language language = MetricEvaluators.Language.ofName(languageName);
             MetricEvaluator evaluator = MetricEvaluators.forLanguage(language);
 
-            MetricEvaluator.MetricEvaluationContext ctx = new MetricEvaluator.MetricEvaluationContext(project.getUrl());
+            MetricEvaluator.MetricEvaluationContext ctx = new MetricEvaluator.MetricEvaluationContext(project.getUrl(), commit.sha());
             Map<String, ClassMetric> classMetrics = evaluator.evaluateMetrics(projectDir, e -> true, metrics, ctx);
             
             // Convert ClassMetric map to MetricsNodeDTO tree
