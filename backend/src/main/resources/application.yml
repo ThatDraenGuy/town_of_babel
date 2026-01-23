@@ -30,6 +30,10 @@ reference:
           name: Function Location
           description: Line number where the function starts in the source file
           type: STRING
+        - id: GITHUB_LINK
+          name: Github link
+          description: Link to source at Github
+          type: STRING
         - id: FULL_NAME
           name: Full Function Name
           description: Fully qualified name of the function including class and package
@@ -59,6 +63,48 @@ reference:
         - id: LOCATION
           name: Function Location
           description: Line number where the function starts in the source file
+          type: STRING
+        - id: GITHUB_LINK
+          name: Github link
+          description: Link to source at Github
+          type: STRING
+        - id: FULL_NAME
+          name: Full Function Name
+          description: Fully qualified name of the function including namespace and class
+          type: STRING
+    - language: c#
+      metrics:
+        - id: NLOC
+          name: Lines of Code
+          description: Number of lines of code (excluding comments and blank lines)
+          type: NUMERIC
+        - id: CCN
+          name: Cyclomatic Complexity Number
+          description: Measures the complexity of a function based on the number of independent paths through the code
+          type: NUMERIC
+        - id: PARAM
+          name: Number of Parameters
+          description: Number of parameters in a function
+          type: NUMERIC
+        - id: PARAM_COLOR
+          name: Colored number of parameters
+          description: Number of parameters represented with a color
+          type: COLOR
+        - id: LENGTH
+          name: Function Length
+          description: Total number of lines in a function
+          type: STRING
+        - id: FILE
+          name: File Name
+          description: Source file name containing the function
+          type: STRING
+        - id: LOCATION
+          name: Function Location
+          description: Line number where the function starts in the source file
+          type: STRING
+        - id: GITHUB_LINK
+          name: Github link
+          description: Link to source at Github
           type: STRING
         - id: FULL_NAME
           name: Full Function Name

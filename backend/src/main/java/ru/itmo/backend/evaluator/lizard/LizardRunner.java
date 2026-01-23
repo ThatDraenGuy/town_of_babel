@@ -34,7 +34,8 @@ public class LizardRunner {
         }
     }
 
-    public static void generateGithubLocations(Map<String, Map<String, String>> lizardOutput, String repoUrl) throws MetricEvaluationException {
+    public static void generateGithubLocations(String basePath, Map<String, Map<String, String>> lizardOutput,
+                                               String repoUrl, String commitSha) throws MetricEvaluationException {
         for (var methodStats : lizardOutput.entrySet()) {
             String[] locationParts = methodStats.getValue().get(LizardFields.LOCATION).split("@");
             if (locationParts.length != 3) {
@@ -55,7 +56,9 @@ public class LizardRunner {
             if (!normalizedRepoUrl.contains("github.com")) {
                 throw new MetricEvaluationException("Non Github-URL for GitHub location");
             }
-            String normalizedFilePath = locationParts[2].trim();
+            String normalizedFilePath = locationParts[2].startsWith(basePath)
+                    ? locationParts[2].substring(basePath.length())
+                    : locationParts[2].trim();
             if (normalizedFilePath.startsWith("/")) {
                 normalizedFilePath = normalizedFilePath.substring(1);
             }
@@ -63,7 +66,7 @@ public class LizardRunner {
 
             StringBuilder urlBuilder = new StringBuilder(normalizedRepoUrl);
             if (!normalizedRepoUrl.contains("/blob/") && !normalizedRepoUrl.contains("/tree/")) {
-                urlBuilder.append("/blob/main/");
+                urlBuilder.append("/blob/").append(commitSha).append("/");
             } else {
                 if (!normalizedRepoUrl.endsWith("/")) {
                     urlBuilder.append("/");
@@ -141,7 +144,9 @@ public class LizardRunner {
         public static final List<String> GENERATED_FIELDS = List.of(GITHUB_LINK);
 
         public static Map<String, String> filterMetrics(Map<String, String> stats) {
-            return stats.entrySet().stream().filter(e -> METRICS.contains(e.getKey())).collect(Collectors.toMap(Map.Entry<String, String>::getKey, Map.Entry<String, String>::getValue));
+            return stats.entrySet().stream().filter(e ->
+                            NATIVE_FIELDS.contains(e.getKey()) || GENERATED_FIELDS.contains(e.getKey()))
+                    .collect(Collectors.toMap(Map.Entry<String, String>::getKey, Map.Entry<String, String>::getValue));
         }
     }
 }

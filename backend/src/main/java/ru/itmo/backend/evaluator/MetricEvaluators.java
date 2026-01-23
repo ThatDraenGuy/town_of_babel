@@ -23,6 +23,7 @@ public class MetricEvaluators {
 
         private static final List<String> CXX_NAMES = List.of("C++", "c++", "CXX", "cxx", "Cxx");
         private static final List<String> JAVA_NAMES = List.of("Java", "java");
+        private static final List<String> CSHARP_NAMES = List.of("C#", "c#", "CSHARP", "csharp");
 
 
         public static Language ofName(String languageName) throws MetricEvaluationException {
@@ -31,6 +32,8 @@ public class MetricEvaluators {
                 return CXX;
             } else if (JAVA_NAMES.contains(lowered)) {
                 return JAVA;
+            } else if (CSHARP_NAMES.contains(lowered)) {
+                return CSHARP;
             } else {
                 throw  new MetricEvaluationException("Unknown language name " + languageName);
             }

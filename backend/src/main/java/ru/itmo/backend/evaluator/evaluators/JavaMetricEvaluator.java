@@ -126,7 +126,7 @@ public class JavaMetricEvaluator implements MetricEvaluator {
 
         var lizardOutput = LizardRunner.runLizard("java", filesToProcess);
         if (context.repoUrl() != null) {
-            LizardRunner.generateGithubLocations(lizardOutput, context.repoUrl());
+            LizardRunner.generateGithubLocations(repository.getPath(), lizardOutput, context.repoUrl(), context.commitSha());
         }
         return lizardOutputToJavaMetrics(lizardOutput);
     }

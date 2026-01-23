@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 
+import { HomeOutlined } from '@ant-design/icons';
 import {
   OrbitControls as Controls,
   OrthographicCamera,
   PerspectiveCamera,
 } from '@react-three/drei';
 import { Canvas, type ThreeElements } from '@react-three/fiber';
-import { Descriptions, Drawer, Layout } from 'antd';
+import { Button, Descriptions, Drawer, Flex, Layout } from 'antd';
 import Sider from 'antd/es/layout/Sider';
-import { Content } from 'antd/es/layout/layout';
+import { Content, Header } from 'antd/es/layout/layout';
+import Link from 'antd/es/typography/Link';
+import Title from 'antd/es/typography/Title';
 import _ from 'lodash';
 import { Color } from 'three';
 
@@ -34,7 +37,10 @@ const Plane = (props: ThreeElements['mesh']) => {
   );
 };
 
+const GITHUB_LINK = 'GITHUB_LINK';
+
 export const TimelinePage: React.FC = () => {
+  const navigate = useNavigate();
   const project = useAppSelector(state => state.project);
 
   const params = useParams();
@@ -55,12 +61,23 @@ export const TimelinePage: React.FC = () => {
     { skip: _.isNil(project.project) },
   );
 
+  const stringMetrics =
+    _.map(
+      _.filter(metrics?.items, {
+        metricType: 'STRING',
+        metricCode: GITHUB_LINK,
+      }),
+      'metricCode',
+    ) ?? [];
+
   const { data: commitData } = useGetCommitMetricsQuery(
     {
       projectId,
       branch,
       sha: commitSha ?? '',
-      metrics: _.uniq([areaMetric, heightMetric, colorMetric]),
+      metrics: _.uniq(
+        _.concat([areaMetric, heightMetric, colorMetric], stringMetrics),
+      ),
     },
     { skip: _.isNil(commitSha) },
   );
@@ -95,8 +112,8 @@ export const TimelinePage: React.FC = () => {
       )?.colorValue ?? { hex: '#000000', display: 'unknown' };
       return {
         id: `${prefix}::${node.name}`,
-        area: _.toNumber(area),
-        height: _.toNumber(height),
+        area: (area === 0 ? 0.1 : area) ** 2,
+        height: height === 0 ? 0.1 : height,
         color: new Color().setHex(Number(color.hex)),
         name: node.name,
         type: 'leaf',
@@ -153,6 +170,21 @@ export const TimelinePage: React.FC = () => {
           />
         </Sider>
         <Layout>
+          <Header>
+            <Flex
+              style={{ height: '100%' }}
+              align="center"
+              justify="space-between"
+            >
+              <Title style={{ marginTop: 0, marginBottom: 0 }} level={4}>
+                {branch}
+              </Title>
+              <Title style={{ marginTop: 0, marginBottom: 0 }} level={3}>
+                {project.project?.project}
+              </Title>
+              <Button icon={<HomeOutlined />} onClick={() => navigate('/')} />
+            </Flex>
+          </Header>
           <Content>
             <Canvas>
               <ambientLight intensity={Math.PI / 2} />
@@ -183,13 +215,16 @@ export const TimelinePage: React.FC = () => {
         title={selectedItem}
       >
         <Descriptions
+          layout="vertical"
           items={_.map(findMethodData(selectedItem)?.metrics, metric => ({
             key: metric.metricCode,
             label: _.find(metrics?.items, { metricCode: metric.metricCode })
               ?.metricName,
             children:
               metric.numberValue ??
-              metric.stringValue ??
+              (metric.stringValue ? (
+                <Link href={metric.stringValue}>LINK</Link>
+              ) : undefined) ??
               metric.colorValue?.display,
           }))}
         />
